@@ -10,6 +10,7 @@ jobs:
       - run: bash scripts/validate-orbs.sh
 
 workflows:
+  version: 2
   circleci-orbs:
     jobs:
       - validate
