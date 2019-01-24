@@ -3,10 +3,11 @@
 # Check for circleci
 command -v circleci > /dev/null || { echo "circleci is required to update the repo. Install it with 'brew install circleci'" >&2; exit 1; }
 
-for ORB in src/*; do
-  echo "Validating $ORB ..."
+for ORB_DIR in src/*; do
+  ORB_NAME="wordpress-mobile/$(basename $ORB_DIR)"
+  echo "Publishing '$ORB_NAME' from '$ORB_DIR' ..."
 
-  circleci orb validate $ORB/orb.yml; RETURN_CODE=$?
+  circleci orb publish increment "$ORB_DIR/orb.yml" "$ORB_NAME" "patch"; RETURN_CODE=$?
 
   if [[ $RETURN_CODE != 0 ]]; then
   	exit 1
