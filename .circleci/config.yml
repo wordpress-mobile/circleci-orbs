@@ -1,0 +1,15 @@
+version: 2
+
+jobs:
+  validate:
+    docker:
+      - image: circleci/circleci-cli:0.1.2709
+    steps:
+      - checkout
+      - run: "echo -e \"token: placeholder\nverbose: false > ~/.circleci/cli.yml\""
+      - run: bash scripts/validate-orbs.sh
+
+workflows:
+  circleci-orbs:
+    jobs:
+      - validate

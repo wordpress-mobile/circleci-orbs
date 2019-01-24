@@ -1,0 +1,47 @@
+version: 2.1
+
+description: |
+  Simplify common tasks for building and testing iOS projects
+
+commands:
+  cached-pod-install:
+    description: |
+      Install pods in the current project and cache the results.
+      
+      Note: A Gemfile with 'cocoapods' and 'cocoapods-check' is required. 
+    steps:
+      - restore_cache:
+          keys:
+            - pods-gems-cache-v1-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
+            - pods-gems-cache-v1-{{ checksum "Gemfile.lock" }}
+            - pods-gems-cache-v1-
+      - run:
+          name: Bundle install
+          command: bundle install --path=vendor/bundle
+      - run:
+          name: Check Podfile matches Podfile.lock
+          command: |
+            function lockfile_error () {
+              echo "Podfile and Podfile.lock do not match. Please run 'bundle exec pod install' and try again."
+            }
+            trap lockfile_error ERR
+
+            # This verifies that the PODFILE CHECKSUM in Podfile.lock matches Podfile
+            PODFILE_SHA1=$(ruby -e "require 'yaml';puts YAML.load_file('Podfile.lock')['PODFILE CHECKSUM']")
+            echo "$PODFILE_SHA1 *Podfile" | shasum -c
+      - run:
+          name: CocoaPods Check
+          command: (bundle exec pod check && touch .skip_pod_install) || echo "Pods will be updated"
+      - run:
+          name: Fetch CocoaPods Specs (if needed)
+          command: test -e .skip_pod_install || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+      - run:
+          name: Pod Install (if needed)
+          command: test -e .skip_pod_install || bundle exec pod install
+          environment:
+            COCOAPODS_DISABLE_STATS: true
+      - save_cache:
+          key: pods-gems-cache-v1-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
+          paths:
+            - Pods/
+            - vendor/bundle

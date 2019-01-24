@@ -1,0 +1,34 @@
+version: 2.1
+
+description: |
+  Simplify running danger in a Github repo
+
+jobs:
+  danger-ruby:
+    description: |
+      Run danger-ruby in the current project.
+
+      $DANGER_GITHUB_API_TOKEN is required.
+    docker:
+      - image: circleci/ruby:2.3
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - danger-gems-v1-{{ checksum "Gemfile.lock" }}
+            - danger-gems-v1-
+      - run:
+          name: Bundle install
+          command: bundle install --path=vendor/bundle
+      - save_cache:
+          key: danger-gems-v1-{{ checksum "Gemfile.lock" }}
+          paths:
+            - vendor/
+      - run:
+          name: Danger
+          command: |
+            if [ -n "$DANGER_GITHUB_API_TOKEN" ]; then
+              bundle exec danger --fail-on-errors=true
+            else
+              echo "Not running danger because $DANGER_GITHUB_API_TOKEN is not found"
+            fi
