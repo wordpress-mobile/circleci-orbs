@@ -4,7 +4,7 @@ description: |
   Simplify running danger in a Github repo
 
 orbs:
-  ruby: sue445/ruby-orbs@1.4.0
+  bundle-install: toshimaru/bundle-install@0.1.1
 
 jobs:
   danger-ruby:
@@ -16,7 +16,7 @@ jobs:
       - image: circleci/ruby:2.3
     steps:
       - checkout
-      - ruby/bundle-install
+      - bundle-install/bundle-install
       - run:
           name: Danger
           command: |
