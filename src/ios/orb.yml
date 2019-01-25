@@ -12,9 +12,50 @@ executors:
       xcode: "10.1.0"
 
 jobs:
+  test:
+    description: |
+      Build and test an iOS project using xcodebuild
+
+      Note: A Gemfile with 'cocoapods', 'cocoapods-check' and 'xcpretty' is required. 
+    parameters:
+      workspace:
+        type: string
+      scheme:
+        type: string
+      configuration:
+        type: string
+        default: Debug
+      destination:
+        type: string
+        default: "platform=iOS Simulator,name=iPhone XS,OS=latest"
+    executor: default
+    steps:
+      - checkout
+      - cached-pod-install
+      - run:
+          name: Build
+          command: |
+            xcodebuild  -workspace "<< parameters.workspace >>" \
+                        -scheme "<< parameters.scheme >>" \
+                        -configuration "<< parameters.configuration >>" \
+                        -destination '<< parameters.destination >>'\
+                        -sdk iphonesimulator \
+                        build-for-testing | bundle exec xcpretty
+      - run:
+          name: Test
+          command: |
+            xcodebuild  -workspace "<< parameters.workspace >>" \
+                        -scheme "<< parameters.scheme >>" \
+                        -configuration "<< parameters.configuration >>" \
+                        -destination '<< parameters.destination >>'\
+                        test-without-building | bundle exec xcpretty -r junit
+      - store_test_results:
+          path: build/reports
   validate-podspec:
     description: |
       Run 'pod spec lint' on a provided .podspec file.
+
+      Note: A Gemfile with 'cocoapods' is required. 
     parameters:
       podspec-path:
         type: string
