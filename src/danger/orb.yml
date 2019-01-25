@@ -3,6 +3,9 @@ version: 2.1
 description: |
   Simplify running danger in a Github repo
 
+orbs:
+  ruby: sue445/ruby-orbs@1.4.0
+
 jobs:
   danger-ruby:
     description: |
@@ -13,17 +16,7 @@ jobs:
       - image: circleci/ruby:2.3
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - danger-gems-v1-{{ checksum "Gemfile.lock" }}
-            - danger-gems-v1-
-      - run:
-          name: Bundle install
-          command: bundle install --path=vendor/bundle
-      - save_cache:
-          key: danger-gems-v1-{{ checksum "Gemfile.lock" }}
-          paths:
-            - vendor/
+      - ruby/bundle-install
       - run:
           name: Danger
           command: |

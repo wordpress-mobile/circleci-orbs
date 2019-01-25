@@ -3,6 +3,32 @@ version: 2.1
 description: |
   Simplify common tasks for building and testing iOS projects
 
+orbs:
+  ruby: sue445/ruby-orbs@1.4.0
+
+executors:
+  default:
+    macos:
+      xcode: "10.1.0"
+
+jobs:
+  validate-podspec:
+    description: |
+      Run 'pod spec lint' on a provided .podspec file.
+    parameters:
+      podspec-path:
+        type: string
+    executor: default
+    steps:
+      - checkout
+      - ruby/bundle-install
+      - run:
+          name: Fetch CocoaPods Specs
+          command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+      - run:
+          name: Validate podspec
+          command: bundle exec pod lib lint "<< parameters.podspec-path >>"
+
 commands:
   cached-pod-install:
     description: |
