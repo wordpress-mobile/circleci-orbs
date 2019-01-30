@@ -84,8 +84,6 @@ commands:
       - restore_cache:
           keys:
             - << parameters.cache-prefix >>-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
-            - << parameters.cache-prefix >>-{{ checksum "Gemfile.lock" }}
-            - << parameters.cache-prefix >>-
       - run:
           name: Bundle install
           command: bundle install --path=vendor/bundle
