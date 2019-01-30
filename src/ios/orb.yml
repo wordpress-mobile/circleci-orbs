@@ -76,12 +76,16 @@ commands:
       Install pods in the current project and cache the results.
       
       Note: A Gemfile with 'cocoapods' and 'cocoapods-check' is required. 
+    parameters:
+      cache-prefix:
+        type: string
+        default: pod-cache-v1
     steps:
       - restore_cache:
           keys:
-            - pods-gems-cache-v1-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
-            - pods-gems-cache-v1-{{ checksum "Gemfile.lock" }}
-            - pods-gems-cache-v1-
+            - << parameters.cache-prefix >>-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
+            - << parameters.cache-prefix >>-{{ checksum "Gemfile.lock" }}
+            - << parameters.cache-prefix >>-
       - run:
           name: Bundle install
           command: bundle install --path=vendor/bundle
@@ -108,7 +112,7 @@ commands:
           environment:
             COCOAPODS_DISABLE_STATS: true
       - save_cache:
-          key: pods-gems-cache-v1-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
+          key: << parameters.cache-prefix >>-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
           paths:
             - Pods/
             - vendor/bundle
