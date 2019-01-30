@@ -88,7 +88,7 @@ commands:
           name: Bundle install
           command: bundle install --path=vendor/bundle
       - run:
-          name: Check Podfile matches Podfile.lock
+          name: CocoaPods check
           command: |
             function lockfile_error () {
               echo "Podfile and Podfile.lock do not match. Please run 'bundle exec pod install' and try again."
@@ -98,15 +98,22 @@ commands:
             # This verifies that the PODFILE CHECKSUM in Podfile.lock matches Podfile
             PODFILE_SHA1=$(ruby -e "require 'yaml';puts YAML.load_file('Podfile.lock')['PODFILE CHECKSUM']")
             echo "$PODFILE_SHA1 *Podfile" | shasum -c
-      - run:
-          name: CocoaPods Check
-          command: (bundle exec pod check && touch .skip_pod_install) || echo "Pods will be updated"
+
+            # Remove trap (so we don't print the lockfile error)
+            trap - ERR
+
+            if diff Podfile.lock Pods/Manifest.lock; then
+              echo "Podfile.lock matches Pods/Manifest.lock. Skipping installing pods ..."
+              echo 'export SKIP_POD_INSTALL=1' >> $BASH_ENV
+            else
+              echo "Podfile.lock does not match Pods/Manifest.lock. Pods will be installed ..."
+            fi
       - run:
           name: Fetch CocoaPods Specs (if needed)
-          command: test -e .skip_pod_install || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+          command: test $SKIP_POD_INSTALL || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
       - run:
           name: Pod Install (if needed)
-          command: test -e .skip_pod_install || bundle exec pod install
+          command: test $SKIP_POD_INSTALL || bundle exec pod install
           environment:
             COCOAPODS_DISABLE_STATS: true
       - save_cache:
