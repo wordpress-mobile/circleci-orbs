@@ -16,9 +16,4 @@ This command will validate all the Orbs in `src/`:
 
 ## Publishing
 
-Organisation members can publish new versions of the Orbs in this repo by running this command:
-
-
-```
-./scripts/publish-orbs.sh
-```
+New Orb versions will be published to CircleCI on every merge to master. See `.circleci/config.yml` for deatils.
