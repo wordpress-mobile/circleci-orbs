@@ -1,4 +1,7 @@
-version: 2
+version: 2.1
+
+orbs:
+  orb-tools: circleci/orb-tools@7.3.0
 
 jobs:
   validate:
@@ -10,7 +13,37 @@ jobs:
       - run: bash scripts/validate-orbs.sh
 
 workflows:
-  version: 2
-  circleci-orbs:
+  orbs:
     jobs:
-      - validate
+      - validate:
+          name: "Validate Orbs"
+
+      - orb-tools/publish:
+          name: "iOS: Publish Dev"
+          orb-path: src/ios/orb.yml
+          orb-ref: "wordpress-mobile/ios@dev:${CIRCLE_BRANCH}"
+          requires: ["Validate Orbs"]
+
+      - orb-tools/publish:
+          name: "Danger: Publish Dev"
+          orb-path: src/danger/orb.yml
+          orb-ref: "wordpress-mobile/danger@dev:${CIRCLE_BRANCH}"
+          requires: ["Validate Orbs"]
+
+      - orb-tools/increment:
+          name: "iOS: Publish"
+          orb-path: src/ios/orb.yml
+          orb-ref: "wordpress-mobile/ios"
+          requires: ["Validate Orbs"]
+          filters:
+            branches:
+              only: master
+
+      - orb-tools/increment:
+          name: "Danger: Publish"
+          orb-path: src/danger/orb.yml
+          orb-ref: "wordpress-mobile/danger"
+          requires: ["Validate Orbs"]
+          filters:
+            branches:
+              only: master
