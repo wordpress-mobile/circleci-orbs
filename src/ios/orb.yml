@@ -25,25 +25,44 @@ jobs:
       configuration:
         type: string
         default: Debug
-      destination:
+      ios-version:
         type: string
-        default: "platform=iOS Simulator,name=iPhone XS,OS=latest"
+        default: "12.1"
+      device:
+        type: string
+        default: iPhone XS
       cache-prefix:
         type: string
         default: pod-cache-v1
     executor: default
     steps:
+      - run:
+          # xcodebuild can behave unpredictably if the simulator is not already booted, so we boot it explicitly here
+          name: Boot simulator
+          command: |
+            # Get the UDID of the "<< parameters.device >>" with "iOS << parameters.ios-version >>"
+            UDID=$(xcrun simctl list -j | jq -r "[.devices[\"iOS << parameters.ios-version >>\"][] | select (.name == \"<< parameters.device >>\" and .availability == \"(available)\")][0] | .udid")
+            xcrun simctl boot $UDID # Boot simulator in the background
+            echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
+          background: true
       - checkout
       - cached-pod-install:
           cache-prefix: << parameters.cache-prefix >>
+      - run:
+          name: Wait for simulator
+          command: |
+            touch $BASH_ENV
+            while [ -z "$SIMULATOR_UDID" ]; do
+                sleep 1
+                source $BASH_ENV
+            done
       - run:
           name: Build
           command: |
             xcodebuild  -workspace "<< parameters.workspace >>" \
                         -scheme "<< parameters.scheme >>" \
                         -configuration "<< parameters.configuration >>" \
-                        -destination '<< parameters.destination >>'\
-                        -sdk iphonesimulator \
+                        -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
                         build-for-testing | bundle exec xcpretty
       - run:
           name: Test
@@ -51,7 +70,7 @@ jobs:
             xcodebuild  -workspace "<< parameters.workspace >>" \
                         -scheme "<< parameters.scheme >>" \
                         -configuration "<< parameters.configuration >>" \
-                        -destination '<< parameters.destination >>'\
+                        -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
                         test-without-building | bundle exec xcpretty -r junit
       - store_test_results:
           path: build/reports
