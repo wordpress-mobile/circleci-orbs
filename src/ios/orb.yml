@@ -16,7 +16,7 @@ jobs:
     description: |
       Build and test an iOS project using xcodebuild
 
-      Note: A Gemfile with 'cocoapods', 'cocoapods-check' and 'xcpretty' is required. 
+      Note: A Gemfile with 'cocoapods' and 'xcpretty' is required. 
     parameters:
       workspace:
         type: string
@@ -28,10 +28,14 @@ jobs:
       destination:
         type: string
         default: "platform=iOS Simulator,name=iPhone XS,OS=latest"
+      cache-prefix:
+        type: string
+        default: pod-cache-v1
     executor: default
     steps:
       - checkout
-      - cached-pod-install
+      - cached-pod-install:
+          cache-prefix: << parameters.cache-prefix >>
       - run:
           name: Build
           command: |
@@ -53,12 +57,15 @@ jobs:
           path: build/reports
   validate-podspec:
     description: |
-      Run 'pod spec lint' on a provided .podspec file.
+      Run 'pod lib lint' on a provided .podspec file.
 
       Note: A Gemfile with 'cocoapods' is required. 
     parameters:
       podspec-path:
         type: string
+      update-specs-repo:
+        type: boolean
+        default: false
     executor: default
     steps:
       - checkout
@@ -66,6 +73,12 @@ jobs:
       - run:
           name: Fetch CocoaPods Specs
           command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+      - when:
+          condition: << parameters.update-specs-repo >>
+          steps:
+            - run:
+                name: Update CocoaPods Specs
+                command: bundle exec pod repo update
       - run:
           name: Validate podspec
           command: bundle exec pod lib lint "<< parameters.podspec-path >>"
@@ -75,7 +88,7 @@ commands:
     description: |
       Install pods in the current project and cache the results.
       
-      Note: A Gemfile with 'cocoapods' and 'cocoapods-check' is required. 
+      Note: A Gemfile with 'cocoapods' is required. 
     parameters:
       cache-prefix:
         type: string
