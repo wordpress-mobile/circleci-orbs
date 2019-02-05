@@ -16,7 +16,7 @@ jobs:
     description: |
       Build and test an iOS project using xcodebuild
 
-      Note: A Gemfile with 'cocoapods' and 'xcpretty' is required. 
+      Note: A Gemfile with 'cocoapods' (if using) and 'xcpretty' is required. 
     parameters:
       workspace:
         type: string
@@ -34,6 +34,9 @@ jobs:
       cache-prefix:
         type: string
         default: pod-cache-v1
+      install-pods:
+        type: boolean
+        default: true
     executor: default
     steps:
       - run:
@@ -46,8 +49,15 @@ jobs:
             echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
           background: true
       - checkout
-      - cached-pod-install:
-          cache-prefix: << parameters.cache-prefix >>
+      - unless:
+          condition: << parameters.install-pods >>
+          steps:
+            - bundle-install/bundle-install
+      - when:
+          condition: << parameters.install-pods >>
+          steps:
+            - cached-pod-install:
+                cache-prefix: << parameters.cache-prefix >>
       - run:
           name: Wait for simulator
           command: |
