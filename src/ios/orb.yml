@@ -3,9 +3,6 @@ version: 2.1
 description: |
   Simplify common tasks for building and testing iOS projects
 
-orbs:
-  bundle-install: toshimaru/bundle-install@0.1.1
-
 executors:
   default:
     macos:
@@ -15,9 +12,8 @@ jobs:
   test:
     description: |
       Build and test an iOS project using xcodebuild
-
-      Note: A Gemfile with 'cocoapods' and 'xcpretty' is required. 
     parameters:
+      # Build options
       workspace:
         type: string
       scheme:
@@ -31,9 +27,29 @@ jobs:
       device:
         type: string
         default: iPhone XS
+      # Dependency options
       cache-prefix:
         type: string
-        default: pod-cache-v1
+        default: dependency-cache
+      bundle-install:
+        type: boolean
+        default: true
+      bundler-working-directory:
+        type: string
+        default: .
+      pod-install:
+        type: boolean
+        default: true
+      cocoapods-working-directory:
+        type: string
+        default: .
+      carthage-update:
+        type: boolean
+        default: false
+      carthage-working-directory:
+        type: string
+        default: .
+
     executor: default
     steps:
       - run:
@@ -46,8 +62,14 @@ jobs:
             echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
           background: true
       - checkout
-      - cached-pod-install:
+      - install-dependencies:
           cache-prefix: << parameters.cache-prefix >>
+          bundle-install: << parameters.bundle-install >>
+          bundler-working-directory: << parameters.bundler-working-directory >>
+          pod-install: << parameters.pod-install >>
+          cocoapods-working-directory: << parameters.cocoapods-working-directory >>
+          carthage-update: << parameters.carthage-update >>
+          carthage-working-directory: << parameters.carthage-working-directory >>
       - run:
           name: Wait for simulator
           command: |
@@ -63,7 +85,7 @@ jobs:
                         -scheme "<< parameters.scheme >>" \
                         -configuration "<< parameters.configuration >>" \
                         -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
-                        build-for-testing | bundle exec xcpretty
+                        build-for-testing | xcpretty
       - run:
           name: Test
           command: |
@@ -71,24 +93,27 @@ jobs:
                         -scheme "<< parameters.scheme >>" \
                         -configuration "<< parameters.configuration >>" \
                         -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
-                        test-without-building | bundle exec xcpretty -r junit
+                        test-without-building | xcpretty -r junit
       - store_test_results:
           path: build/reports
   validate-podspec:
     description: |
       Run 'pod lib lint' on a provided .podspec file.
-
-      Note: A Gemfile with 'cocoapods' is required. 
     parameters:
       podspec-path:
         type: string
+      bundle-install:
+        type: boolean
+        default: true
       update-specs-repo:
         type: boolean
         default: false
     executor: default
     steps:
       - checkout
-      - bundle-install/bundle-install
+      - install-dependencies:
+          pod-install: false
+          bundle-install: << parameters.bundle-install >>
       - run:
           name: Fetch CocoaPods Specs
           command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
@@ -97,59 +122,92 @@ jobs:
           steps:
             - run:
                 name: Update CocoaPods Specs
-                command: bundle exec pod repo update
+                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
       - run:
           name: Validate podspec
-          command: bundle exec pod lib lint "<< parameters.podspec-path >>"
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint "<< parameters.podspec-path >>"
 
 commands:
-  cached-pod-install:
+  install-dependencies:
     description: |
-      Install pods in the current project and cache the results.
-      
-      Note: A Gemfile with 'cocoapods' is required. 
+      Installs dependencies in the current workspace and caches the results.
     parameters:
       cache-prefix:
         type: string
-        default: pod-cache-v1
+        default: dependency-cache
+      bundle-install:
+        type: boolean
+        default: true
+      bundler-working-directory:
+        type: string
+        default: .
+      pod-install:
+        type: boolean
+        default: true
+      cocoapods-working-directory:
+        type: string
+        default: .
+      carthage-update:
+        type: boolean
+        default: false
+      carthage-working-directory:
+        type: string
+        default: .
     steps:
       - restore_cache:
           keys:
-            - << parameters.cache-prefix >>-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
-      - run:
-          name: Bundle install
-          command: bundle install --path=vendor/bundle
-      - run:
-          name: CocoaPods check
-          command: |
-            function lockfile_error () {
-              echo "Podfile and Podfile.lock do not match. Please run 'bundle exec pod install' and try again."
-            }
-            trap lockfile_error ERR
+            - << parameters.cache-prefix >>-<<# parameters.bundle-install >>{{ checksum "<< parameters.bundler-working-directory >>/Gemfile.lock" }}-<</ parameters.bundle-install >><<# parameters.pod-install >>{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}-<</ parameters.pod-install >><<# parameters.carthage-update >>{{ checksum "<< parameters.carthage-working-directory >>/Cartfile.resolved" }}-<</ parameters.carthage-update >>
+      - when:
+          condition: << parameters.bundle-install >>
+          steps:
+            - run:
+                name: Bundle install
+                command: cd "<< parameters.bundler-working-directory >>" && bundle install --path=vendor/bundle
+      - when:
+          condition: << parameters.pod-install >>
+          steps:
+            - run:
+                name: CocoaPods check
+                command: |
+                  cd "<< parameters.cocoapods-working-directory >>"
 
-            # This verifies that the PODFILE CHECKSUM in Podfile.lock matches Podfile
-            PODFILE_SHA1=$(ruby -e "require 'yaml';puts YAML.load_file('Podfile.lock')['PODFILE CHECKSUM']")
-            echo "$PODFILE_SHA1 *Podfile" | shasum -c
+                  function lockfile_error () {
+                    echo "Podfile and Podfile.lock do not match. Please run '$POD' and try again."
+                  }
+                  trap lockfile_error ERR
 
-            # Remove trap (so we don't print the lockfile error)
-            trap - ERR
+                  # This verifies that the PODFILE CHECKSUM in Podfile.lock matches Podfile
+                  PODFILE_SHA1=$(ruby -e "require 'yaml';puts YAML.load_file('Podfile.lock')['PODFILE CHECKSUM']")
+                  echo "$PODFILE_SHA1 *Podfile" | shasum -c
 
-            if diff Podfile.lock Pods/Manifest.lock; then
-              echo "Podfile.lock matches Pods/Manifest.lock. Skipping installing pods ..."
-              echo 'export SKIP_POD_INSTALL=1' >> $BASH_ENV
-            else
-              echo "Podfile.lock does not match Pods/Manifest.lock. Pods will be installed ..."
-            fi
-      - run:
-          name: Fetch CocoaPods Specs (if needed)
-          command: test $SKIP_POD_INSTALL || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
-      - run:
-          name: Pod Install (if needed)
-          command: test $SKIP_POD_INSTALL || bundle exec pod install
-          environment:
-            COCOAPODS_DISABLE_STATS: true
+                  # Remove trap (so we don't print the lockfile error)
+                  trap - ERR
+
+                  if diff Podfile.lock Pods/Manifest.lock; then
+                    echo "Podfile.lock matches Pods/Manifest.lock. Skipping installing pods ..."
+                    echo 'export SKIP_POD_INSTALL=1' >> $BASH_ENV
+                  else
+                    echo "Podfile.lock does not match Pods/Manifest.lock. Pods will be installed ..."
+                  fi
+            - run:
+                name: Fetch CocoaPods Specs (if needed)
+                command: test $SKIP_POD_INSTALL || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+            - run:
+                name: Pod Install (if needed)
+                command: test $SKIP_POD_INSTALL || (cd "<< parameters.cocoapods-working-directory >>" && <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install)
+                environment:
+                  COCOAPODS_DISABLE_STATS: true
+      - when:
+          condition: << parameters.carthage-update >>
+          steps:
+            - run:
+                name: Carthage Update
+                command: cd "<< parameters.carthage-working-directory >>" && carthage update --cache-builds
+
       - save_cache:
-          key: << parameters.cache-prefix >>-{{ checksum "Gemfile.lock" }}-{{ checksum "Podfile.lock" }}
+          key: << parameters.cache-prefix >>-<<# parameters.bundle-install >>{{ checksum "<< parameters.bundler-working-directory >>/Gemfile.lock" }}-<</ parameters.bundle-install >><<# parameters.pod-install >>{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}-<</ parameters.pod-install >><<# parameters.carthage-update >>{{ checksum "<< parameters.carthage-working-directory >>/Cartfile.resolved" }}-<</ parameters.carthage-update >>
           paths:
-            - Pods/
-            - vendor/bundle
+            
+            - << parameters.bundler-working-directory >>/vendor/bundle
+            - << parameters.cocoapods-working-directory >>/Pods/
+            - << parameters.carthage-working-directory >>/Carthage/
