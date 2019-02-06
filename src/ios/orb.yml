@@ -111,9 +111,12 @@ jobs:
     executor: default
     steps:
       - checkout
-      - install-dependencies:
-          pod-install: false
-          bundle-install: << parameters.bundle-install >>
+      - when:
+          condition: << parameters.bundle-install >>
+          steps:
+            -  install-dependencies:
+                 pod-install: false
+                 bundle-install: true
       - run:
           name: Fetch CocoaPods Specs
           command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
@@ -156,7 +159,10 @@ commands:
     steps:
       - restore_cache:
           keys:
-            - << parameters.cache-prefix >>-<<# parameters.bundle-install >>{{ checksum "<< parameters.bundler-working-directory >>/Gemfile.lock" }}-<</ parameters.bundle-install >><<# parameters.pod-install >>{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}-<</ parameters.pod-install >><<# parameters.carthage-update >>{{ checksum "<< parameters.carthage-working-directory >>/Cartfile.resolved" }}-<</ parameters.carthage-update >>
+            - "<< parameters.cache-prefix >>-\
+               <<# parameters.bundle-install >>{{ checksum \"<< parameters.bundler-working-directory >>/Gemfile.lock\" }}-<</ parameters.bundle-install >>\
+               <<# parameters.pod-install >>{{ checksum \"<< parameters.cocoapods-working-directory >>/Podfile.lock\" }}-<</ parameters.pod-install >>\
+               <<# parameters.carthage-update >>{{ checksum \"<< parameters.carthage-working-directory >>/Cartfile.resolved\" }}-<</ parameters.carthage-update >>"
       - when:
           condition: << parameters.bundle-install >>
           steps:
@@ -172,7 +178,7 @@ commands:
                   cd "<< parameters.cocoapods-working-directory >>"
 
                   function lockfile_error () {
-                    echo "Podfile and Podfile.lock do not match. Please run '$POD' and try again."
+                    echo "Podfile and Podfile.lock do not match. Please run 'pod install' and try again."
                   }
                   trap lockfile_error ERR
 
@@ -194,7 +200,28 @@ commands:
                 command: test $SKIP_POD_INSTALL || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
             - run:
                 name: Pod Install (if needed)
-                command: test $SKIP_POD_INSTALL || (cd "<< parameters.cocoapods-working-directory >>" && <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install)
+                command: | 
+                  cd "<< parameters.cocoapods-working-directory >>"
+
+                  if [ -n "$SKIP_POD_INSTALL" ]; then
+                    echo "Skipping pod install ..."
+                  else
+                    # Get the shasum of Podfile.lock before installing pods
+                    LOCKFILE_SHASUM=$(shasum Podfile.lock)
+
+                    # Install pods
+                    <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
+
+                    # Check that Podfile.lock was unchanged by pod install
+                    function lockfile_error () {
+                      echo "Podfile.lock was changed by 'pod install'. Please run 'pod install' and try again."
+                    }
+                    trap lockfile_error ERR
+
+                    echo
+                    echo "Checking that Podfile.lock was not modified by 'pod install'"
+                    echo "${LOCKFILE_SHASUM}" | shasum -c > /dev/null
+                  fi
                 environment:
                   COCOAPODS_DISABLE_STATS: true
       - when:
@@ -205,9 +232,11 @@ commands:
                 command: cd "<< parameters.carthage-working-directory >>" && carthage update --cache-builds
 
       - save_cache:
-          key: << parameters.cache-prefix >>-<<# parameters.bundle-install >>{{ checksum "<< parameters.bundler-working-directory >>/Gemfile.lock" }}-<</ parameters.bundle-install >><<# parameters.pod-install >>{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}-<</ parameters.pod-install >><<# parameters.carthage-update >>{{ checksum "<< parameters.carthage-working-directory >>/Cartfile.resolved" }}-<</ parameters.carthage-update >>
+          key: "<< parameters.cache-prefix >>-\
+                <<# parameters.bundle-install >>{{ checksum \"<< parameters.bundler-working-directory >>/Gemfile.lock\" }}-<</ parameters.bundle-install >>\
+                <<# parameters.pod-install >>{{ checksum \"<< parameters.cocoapods-working-directory >>/Podfile.lock\" }}-<</ parameters.pod-install >>\
+                <<# parameters.carthage-update >>{{ checksum \"<< parameters.carthage-working-directory >>/Cartfile.resolved\" }}-<</ parameters.carthage-update >>"
           paths:
-            
             - << parameters.bundler-working-directory >>/vendor/bundle
             - << parameters.cocoapods-working-directory >>/Pods/
             - << parameters.carthage-working-directory >>/Carthage/
