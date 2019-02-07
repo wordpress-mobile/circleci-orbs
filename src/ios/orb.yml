@@ -15,16 +15,31 @@ jobs:
     parameters:
       # Build options
       workspace:
+        description: Workspace parameter to be passed to xcodebuild. e.g. MyProject.xcworkspace. A workspace or a project is required.
         type: string
+        default: ""
+      project:
+        description: Project parameter to be passed to xcodebuild. e.g. MyProject.xcodeproj. A workspace or a project is required.
+        type: string
+        default: ""
       scheme:
+        description: Scheme parameter for xcodebuild. e.g. MyProject. A scheme or a target is required.
         type: string
+        default: ""
+      target:
+        description: Target parameter for xcodebuild. e.g. MyProject. A scheme or a target is required.
+        type: string
+        default: ""
       configuration:
+        description: Configuration paramter for xcodebuild. e.g. Debug.
         type: string
         default: Debug
       ios-version:
+        description: The iOS simulator version to run tests on.
         type: string
         default: "12.1"
       device:
+        description: The iOS simulator device to run tests on.
         type: string
         default: iPhone XS
       # Dependency options
@@ -71,6 +86,33 @@ jobs:
           carthage-update: << parameters.carthage-update >>
           carthage-working-directory: << parameters.carthage-working-directory >>
       - run:
+          name: Prepare xcodebuild parameters
+          command: |
+            optional_argument () {
+              OPTION="$1"
+              VALUE="$2"
+              if [[ ! -z "$VALUE" ]]; then
+                echo -n "${OPTION} '${VALUE}'"
+              fi
+            }
+
+            XCODEBUILD_ARGS=""
+            XCODEBUILD_ARGS="${XCODEBUILD_ARGS} $(optional_argument "-workspace" "<< parameters.workspace >>")"
+            XCODEBUILD_ARGS="${XCODEBUILD_ARGS} $(optional_argument "-project" "<< parameters.project >>")"
+            XCODEBUILD_ARGS="${XCODEBUILD_ARGS} $(optional_argument "-scheme" "<< parameters.scheme >>")"
+            XCODEBUILD_ARGS="${XCODEBUILD_ARGS} $(optional_argument "-target" "<< parameters.target >>")"
+            XCODEBUILD_ARGS="${XCODEBUILD_ARGS} -configuration '<< parameters.configuration >>'"
+            XCODEBUILD_ARGS="${XCODEBUILD_ARGS} -sdk iphonesimulator"
+
+            echo "export XCODEBUILD_ARGS='${XCODEBUILD_ARGS}'" >> $BASH_ENV
+
+            echo "Finished building xcodebuild parameters:"
+            echo "${XCODEBUILD_ARGS}"
+      - run:
+          name: Build
+          command: |
+            xcodebuild build-for-testing $XCODEBUILD_ARGS | xcpretty
+      - run:
           name: Wait for simulator
           command: |
             touch $BASH_ENV
@@ -79,21 +121,9 @@ jobs:
                 source $BASH_ENV
             done
       - run:
-          name: Build
-          command: |
-            xcodebuild  -workspace "<< parameters.workspace >>" \
-                        -scheme "<< parameters.scheme >>" \
-                        -configuration "<< parameters.configuration >>" \
-                        -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
-                        build-for-testing | xcpretty
-      - run:
           name: Test
           command: |
-            xcodebuild  -workspace "<< parameters.workspace >>" \
-                        -scheme "<< parameters.scheme >>" \
-                        -configuration "<< parameters.configuration >>" \
-                        -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
-                        test-without-building | xcpretty -r junit
+            xcodebuild test-without-building $XCODEBUILD_ARGS -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" | xcpretty -r junit
       - store_test_results:
           path: build/reports
   validate-podspec:
