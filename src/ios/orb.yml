@@ -15,24 +15,31 @@ jobs:
     parameters:
       # Build options
       workspace:
+        description: Workspace parameter to be passed to xcodebuild. e.g. MyProject.xcworkspace. A workspace or a project is required.
         type: string
         default: ""
       project:
+        description: Project parameter to be passed to xcodebuild. e.g. MyProject.xcodeproj. A workspace or a project is required.
         type: string
         default: ""
       scheme:
+        description: Scheme parameter for xcodebuild. e.g. MyProject. A scheme or a target is required.
         type: string
         default: ""
       target:
+        description: Target parameter for xcodebuild. e.g. MyProject. A scheme or a target is required.
         type: string
         default: ""
       configuration:
+        description: Configuration paramter for xcodebuild. e.g. Debug.
         type: string
         default: Debug
       ios-version:
+        description: The iOS simulator version to run tests on.
         type: string
         default: "12.1"
       device:
+        description: The iOS simulator device to run tests on.
         type: string
         default: iPhone XS
       # Dependency options
