@@ -16,4 +16,4 @@ This command will validate all the Orbs in `src/`:
 
 ## Publishing
 
-New Orb versions will be published to CircleCI on every merge to master. See `.circleci/config.yml` for deatils.
+Maintainers can publish a new version of the Orbs by making a new release on Github [here](https://github.com/wordpress-mobile/circleci-orbs/releases/new). This will cause this release to be published to the CircleCI Orb registry. See `.circleci/config.yml` for details.

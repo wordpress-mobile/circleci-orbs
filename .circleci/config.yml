@@ -30,20 +30,24 @@ workflows:
           orb-ref: "wordpress-mobile/danger@dev:${CIRCLE_BRANCH}"
           requires: ["Validate Orbs"]
 
-      - orb-tools/increment:
+      - orb-tools/publish:
           name: "iOS: Publish"
           orb-path: src/ios/orb.yml
-          orb-ref: "wordpress-mobile/ios"
+          orb-ref: "wordpress-mobile/ios@${CIRCLE_TAG}"
           requires: ["Validate Orbs"]
           filters:
+            tags:
+              only: /.*/
             branches:
-              only: master
+              ignore: /.*/
 
-      - orb-tools/increment:
+      - orb-tools/publish:
           name: "Danger: Publish"
           orb-path: src/danger/orb.yml
-          orb-ref: "wordpress-mobile/danger"
+          orb-ref: "wordpress-mobile/danger@${CIRCLE_TAG}"
           requires: ["Validate Orbs"]
           filters:
+            tags:
+              only: /.*/
             branches:
-              only: master
+              ignore: /.*/
