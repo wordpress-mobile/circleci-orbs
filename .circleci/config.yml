@@ -23,6 +23,12 @@ workflows:
           orb-path: src/ios/orb.yml
           orb-ref: "wordpress-mobile/ios@dev:${CIRCLE_BRANCH}"
           requires: ["Validate Orbs"]
+      
+      - orb-tools/publish:
+          name: "Android: Publish Dev"
+          orb-path: src/android/orb.yml
+          orb-ref: "wordpress-mobile/android@dev:${CIRCLE_BRANCH}"
+          requires: ["Validate Orbs"]
 
       - orb-tools/publish:
           name: "Danger: Publish Dev"
@@ -34,6 +40,17 @@ workflows:
           name: "iOS: Publish"
           orb-path: src/ios/orb.yml
           orb-ref: "wordpress-mobile/ios@${CIRCLE_TAG}"
+          requires: ["Validate Orbs"]
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              ignore: /.*/
+
+      - orb-tools/publish:
+          name: "Android: Publish"
+          orb-path: src/android/orb.yml
+          orb-ref: "wordpress-mobile/android@${CIRCLE_TAG}"
           requires: ["Validate Orbs"]
           filters:
             tags:

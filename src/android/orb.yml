@@ -1,0 +1,50 @@
+version: 2.1
+
+description: |
+  Simplify common tasks for building and testing Android projects
+
+commands:
+  generate-gradle-checksums:
+    steps:
+      - run:
+          name: Generate Gradle checksums
+          command: |
+            # This finds all *.gradle files (apart from the root build.gradle) and generates checksums for caching
+            find . -name "*.gradle" -type f -mindepth 2 | sort | xargs shasum > gradle-checksums.txt
+            cat gradle-checksums.txt
+  restore-gradle-cache:
+    description: Restore the cache of ~/.gradle based on the local build files.
+    parameters:
+      cache-prefix:
+        type: string
+        default: gradle-cache
+    steps:
+      - generate-gradle-checksums
+      - restore_cache:
+          keys:
+            - <<parameters.cache-prefix>>-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}-{{ checksum "build.gradle" }}-{{ checksum "gradle-checksums.txt" }}
+            - <<parameters.cache-prefix>>-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}-{{ checksum "build.gradle" }}-
+            - <<parameters.cache-prefix>>-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}-
+  save-gradle-cache:
+    description: Cache the contents of ~/.gradle based on the local build files.
+    parameters:
+      cache-prefix:
+        type: string
+        default: gradle-cache
+    steps:
+      - save_cache:
+          paths:
+            - ~/.gradle
+          key: <<parameters.cache-prefix>>-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}-{{ checksum "build.gradle" }}-{{ checksum "gradle-checksums.txt" }}
+  save-test-results:
+    steps:
+      - run:
+          name: Save test results
+          command: |
+            mkdir -p ~/junit/
+            find . -type f -regex ".*/build/test-results/.*xml" -exec cp {} ~/junit/ \;
+          when: always
+      - store_test_results:
+          path: ~/junit
+      - store_artifacts:
+          path: ~/junit
