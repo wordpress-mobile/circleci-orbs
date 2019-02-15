@@ -96,7 +96,7 @@ jobs:
               fi
             }
 
-            XCODEBUILD_ARGS=""
+            XCODEBUILD_ARGS="COMPILER_INDEX_STORE_ENABLE=NO"
             XCODEBUILD_ARGS="${XCODEBUILD_ARGS} $(optional_argument "-workspace" "<< parameters.workspace >>")"
             XCODEBUILD_ARGS="${XCODEBUILD_ARGS} $(optional_argument "-project" "<< parameters.project >>")"
             XCODEBUILD_ARGS="${XCODEBUILD_ARGS} $(optional_argument "-scheme" "<< parameters.scheme >>")"
