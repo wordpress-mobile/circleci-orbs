@@ -11,12 +11,16 @@ executors:
         description: The Android API version to use.
         type: string
         default: "27"
+      max-heap-size:
+        description: The max Java heap size (this is the -Xmx parameter).
+        type: string
+        default: 1536m
     docker:
       - image: circleci/android:api-<<parameters.api-version>>
         environment:
           # kotlin.incremental=false and kotlin.compiler.execution.strategy=in-process are required due to an issue with the Kotlin compiler in
           # memory constrained environments: https://youtrack.jetbrains.com/issue/KT-15562
-          GRADLE_OPTS: -Xmx1536m -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dkotlin.compiler.execution.strategy=in-process -Dkotlin.incremental=false
+          GRADLE_OPTS: -Xmx<<parameters.max-heap-size>> -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dkotlin.compiler.execution.strategy=in-process -Dkotlin.incremental=false
 
 commands:
   generate-gradle-checksums:
