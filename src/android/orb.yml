@@ -25,7 +25,7 @@ commands:
           name: Generate Gradle checksums
           command: |
             # This finds all *.gradle files (apart from the root build.gradle) and generates checksums for caching
-            find . -name "*.gradle" -type f -mindepth 2 | sort | xargs shasum > gradle-checksums.txt
+            find . -mindepth 2 -name "*.gradle" -type f | sort | xargs shasum > gradle-checksums.txt
             cat gradle-checksums.txt
   restore-gradle-cache:
     description: Restore the cache of ~/.gradle based on the local build files.
@@ -63,3 +63,83 @@ commands:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+  firebase-test:
+    description: |
+      Invoke a test in Firebase Test Lab for Android. See https://cloud.google.com/sdk/gcloud/reference/firebase/test/android/run.
+    parameters:
+      key-file:
+        description: Path to the key file to be passed to "gcloud auth activate-service-account"
+        type: string
+      type:
+        type: string
+        default: instrumentation
+      apk-path:
+        type: string
+      test-apk-path:
+        type: string
+      device:
+        type: string
+      project:
+        type: string
+      timeout:
+        type: string
+        default: 15m
+      results-history-name:
+        type: string
+        default: ""
+      test-targets:
+        type: string
+        default: ""
+      no-record-video:
+        type: boolean
+        default: false
+      additional-parameters:
+        description: Additional parameters for "gcloud firebase test android run"
+        type: string
+        default: ""
+    steps:
+      - run:
+          name: Authenticate gcloud
+          command: gcloud auth activate-service-account --key-file "<<parameters.key-file>>"
+      - run:
+          name: Run tests on Firebase Test Lab
+          no_output_timeout: 1h # Set to a large value as firebase manages its own timeout.
+          command: |
+            optional_argument () {
+              OPTION="$1"
+              VALUE="$2"
+              if [[ ! -z "$VALUE" ]]; then
+                echo -n "${OPTION} \"${VALUE}\""
+              fi
+            }
+
+            COMMAND="gcloud firebase test android run"
+            COMMAND="${COMMAND} --type \"<<parameters.type>>\""
+            COMMAND="${COMMAND} --app \"<<parameters.apk-path>>\""
+            COMMAND="${COMMAND} --test \"<<parameters.test-apk-path>>\""
+            COMMAND="${COMMAND} --timeout \"<<parameters.timeout>>\""
+            COMMAND="${COMMAND} --device \"<<parameters.device>>\""
+            COMMAND="${COMMAND} --project \"<<parameters.project>>\""
+            COMMAND="${COMMAND} --verbosity info"
+            COMMAND="${COMMAND} <<parameters.additional-parameters>>"
+            COMMAND="${COMMAND} <<# parameters.no-record-video >>--no-record-video<</ parameters.no-record-video >>"
+            COMMAND="${COMMAND} $(optional_argument --results-history-name "<<parameters.results-history-name>>")"
+            COMMAND="${COMMAND} $(optional_argument --test-targets "<<parameters.test-targets>>")"
+
+            echo "${COMMAND}"
+            echo
+            eval "${COMMAND}" |& tee log.txt
+      - run:
+          name: Gather Firebase test results
+          when: always
+          command: |
+            mkdir ~/results
+            mkdir ~/test_results
+
+            TEST_BUCKET=$(cat log.txt | grep -o "gs://test\-lab\-.*/" | head -1)
+            gsutil -m cp -r -U "$TEST_BUCKET*" ~/results/
+            find ~/results -name "*.xml" -exec cp {} ~/test_results/ \;
+      - store_test_results:
+          path: ~/test_results
+      - store_artifacts:
+          path: ~/results
