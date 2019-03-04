@@ -32,7 +32,7 @@ commands:
     parameters:
       cache-prefix:
         type: string
-        default: gradle-cache
+        default: gradle-{{ .Environment.CIRCLE_JOB }}
     steps:
       - generate-gradle-checksums
       - restore_cache:
@@ -45,7 +45,7 @@ commands:
     parameters:
       cache-prefix:
         type: string
-        default: gradle-cache
+        default: gradle-{{ .Environment.CIRCLE_JOB }}
     steps:
       - save_cache:
           paths:

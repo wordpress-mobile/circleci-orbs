@@ -167,7 +167,7 @@ commands:
     parameters:
       cache-prefix:
         type: string
-        default: dependency-cache
+        default: ios-{{ .Environment.CIRCLE_JOB }}
       bundle-install:
         type: boolean
         default: true
