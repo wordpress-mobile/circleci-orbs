@@ -52,6 +52,7 @@ commands:
             - ~/.gradle
           key: <<parameters.cache-prefix>>-{{ checksum "gradle/wrapper/gradle-wrapper.properties" }}-{{ checksum "build.gradle" }}-{{ checksum "gradle-checksums.txt" }}
   save-test-results:
+    description: Store the results of Gradle test tasks as artifacts and test results on CircleCI.
     steps:
       - run:
           name: Save test results
@@ -63,6 +64,17 @@ commands:
           path: ~/junit
       - store_artifacts:
           path: ~/junit
+  save-lint-results:
+    description: Store the results of Gradle lint tasks as artifacts on CircleCI.
+    steps:
+      - run:
+          name: Save lint results
+          command: |
+            mkdir -p ~/lint/
+            find . -type f -regex ".*/build/reports/.*" -exec cp {} ~/lint/ \;
+          when: always
+      - store_artifacts:
+          path: ~/lint
   firebase-test:
     description: |
       Invoke a test in Firebase Test Lab for Android. See https://cloud.google.com/sdk/gcloud/reference/firebase/test/android/run.
