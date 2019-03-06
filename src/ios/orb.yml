@@ -5,14 +5,27 @@ description: |
 
 executors:
   default:
+    description: |
+      An executor with sensible defaults for iOS builds.
+      See supported versions here: https://circleci.com/docs/2.0/testing-ios/#supported-xcode-versions
+    parameters:
+      xcode-version:
+        description: The Xcode version to use.
+        type: string
+        default: "10.1.0"
     macos:
-      xcode: "10.1.0"
+      xcode: << parameters.xcode-version >>
 
 jobs:
   test:
     description: |
       Build and test an iOS project using xcodebuild
     parameters:
+      # Executor options
+      xcode-version:
+        description: The Xcode version to use.
+        type: string
+        default: "10.1.0"
       # Build options
       workspace:
         description: Workspace parameter to be passed to xcodebuild. e.g. MyProject.xcworkspace. A workspace or a project is required.
@@ -65,7 +78,9 @@ jobs:
         type: string
         default: .
 
-    executor: default
+    executor:
+      name: default
+      xcode-version: << parameters.xcode-version >>
     steps:
       - run:
           # xcodebuild can behave unpredictably if the simulator is not already booted, so we boot it explicitly here
@@ -130,6 +145,10 @@ jobs:
     description: |
       Run 'pod lib lint' on a provided .podspec file.
     parameters:
+      xcode-version:
+        description: The Xcode version to use.
+        type: string
+        default: "10.1.0"
       podspec-path:
         type: string
       bundle-install:
@@ -138,7 +157,9 @@ jobs:
       update-specs-repo:
         type: boolean
         default: false
-    executor: default
+    executor:
+      name: default
+      xcode-version: << parameters.xcode-version >>
     steps:
       - checkout
       - when:
