@@ -146,12 +146,10 @@ commands:
           when: always
           command: |
             mkdir ~/results
-            mkdir ~/test_results
 
             TEST_BUCKET=$(cat log.txt | grep -o "gs://test\-lab\-.*/" | head -1)
-            gsutil -m cp -r -U "$TEST_BUCKET*" ~/results/
-            find ~/results -name "*.xml" -exec cp {} ~/test_results/ \;
+            gsutil -m cp -r -U "$TEST_BUCKET**test_result*.xml" ~/results
       - store_test_results:
-          path: ~/test_results
+          path: ~/results
       - store_artifacts:
           path: ~/results
