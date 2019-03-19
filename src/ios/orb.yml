@@ -157,6 +157,9 @@ jobs:
       update-specs-repo:
         type: boolean
         default: false
+      use-specs-cdn:
+        type: boolean
+        default: false
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
@@ -168,9 +171,12 @@ jobs:
             -  install-dependencies:
                  pod-install: false
                  bundle-install: true
-      - run:
-          name: Fetch CocoaPods Specs
-          command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+      - unless:
+          condition: << parameters.use-specs-cdn >>
+          steps:
+            - run:
+                name: Fetch CocoaPods Specs
+                command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
       - when:
           condition: << parameters.update-specs-repo >>
           steps:
@@ -179,7 +185,7 @@ jobs:
                 command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
       - run:
           name: Validate podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint "<< parameters.podspec-path >>"
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint "<< parameters.podspec-path >>" <<# parameters.use-specs-cdn >>--sources=https://cdn.jsdelivr.net/cocoa/<</ parameters.use-specs-cdn >>
 
 commands:
   install-dependencies:
