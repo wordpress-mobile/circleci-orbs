@@ -39,6 +39,19 @@ executor_parameter: &executor_parameter
     type: string
     default: "10.1.0"
 
+podspec_parameters: &podspec_parameters
+  podspec-path:
+    description: Path to the .podspec file.
+    type: string
+  bundle-install:
+    description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
+    type: boolean
+    default: true
+  update-specs-repo:
+    description: Should the CocoaPods Specs repo be updated with 'pod repo update' before running?
+    type: boolean
+    default: false
+
 executors:
   default:
     description: |
@@ -158,22 +171,47 @@ jobs:
       Run 'pod lib lint' on a provided .podspec file.
     parameters:
       <<: *executor_parameter
-      podspec-path:
-        description: Path to the podspec file to validate.
-        type: string
-      bundle-install:
-        description: Should 'bundle install' be run? If true, 'bundle exec' will be used 'pod lib lint'.
-        type: boolean
-        default: true
-      update-specs-repo:
-        description: Should the CocoaPods Specs repo be update with 'pod repo update' before validating?
-        type: boolean
-        default: false
+      <<: *podspec_parameters
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
     steps:
       - checkout
+      - prepare-podspec:
+          podspec-path: << parameters.podspec-path >>
+          bundle-install: << parameters.bundle-install >>
+          update-specs-repo: << parameters.update-specs-repo >>
+      - run:
+          name: Validate podspec
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --verbose "<< parameters.podspec-path >>"
+  publish-podspec:
+    description: |
+      Publishes the provided .podspec file to trunk using 'pod trunk push'.
+
+      Note: A COCOAPODS_TRUNK_TOKEN environment variable should be set for your project.
+    parameters:
+      <<: *executor_parameter
+      <<: *podspec_parameters
+    executor:
+      name: default
+      xcode-version: << parameters.xcode-version >>
+    steps:
+      - checkout
+      - prepare-podspec:
+          podspec-path: << parameters.podspec-path >>
+          bundle-install: << parameters.bundle-install >>
+          update-specs-repo: << parameters.update-specs-repo >>
+      - run:
+          name: Publish podspec
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
+
+commands:
+  prepare-podspec:
+    description: |
+      Prepare to run CococaPods commands on a .podspec file. Runs 'bundle install' and downloads/updates the CocoaPods specs repo if needed.
+    parameters:
+      <<: *podspec_parameters
+    steps:
       - when:
           condition: << parameters.bundle-install >>
           steps:
@@ -189,11 +227,6 @@ jobs:
             - run:
                 name: Update CocoaPods Specs
                 command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
-      - run:
-          name: Validate podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint "<< parameters.podspec-path >>"
-
-commands:
   install-dependencies:
     description: |
       Installs dependencies in the current workspace and caches the results.
