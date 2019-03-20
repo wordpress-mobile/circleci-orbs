@@ -1,0 +1,43 @@
+jobs:
+  validate-podspec:
+    description: |
+      Run 'pod lib lint' on a provided .podspec file.
+    parameters:
+      xcode-version:
+        description: The Xcode version to use.
+        type: string
+        default: "10.1.0"
+      podspec-path:
+        description: Path to the podspec file to validate.
+        type: string
+      bundle-install:
+        description: Should 'bundle install' be run? If true, 'bundle exec' will be used 'pod lib lint'.
+        type: boolean
+        default: true
+      update-specs-repo:
+        description: Should the CocoaPods Specs repo be update with 'pod repo update' before validating?
+        type: boolean
+        default: false
+    executor:
+      name: default
+      xcode-version: << parameters.xcode-version >>
+    steps:
+      - checkout
+      - when:
+          condition: << parameters.bundle-install >>
+          steps:
+            -  install-dependencies:
+                 pod-install: false
+                 bundle-install: true
+      - run:
+          name: Fetch CocoaPods Specs
+          command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+      - when:
+          condition: << parameters.update-specs-repo >>
+          steps:
+            - run:
+                name: Update CocoaPods Specs
+                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
+      - run:
+          name: Validate podspec
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint "<< parameters.podspec-path >>"
