@@ -3,6 +3,42 @@ version: 2.1
 description: |
   Simplify common tasks for building and testing iOS projects
 
+dependency_parameters: &dependency_parameters
+  cache-prefix:
+    description: A prefix to use for the dependencies cache key.
+    type: string
+    default: ios-{{ .Environment.CIRCLE_JOB }}
+  bundle-install:
+    description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
+    type: boolean
+    default: true
+  bundler-working-directory:
+    description: The directory containing your project's Gemfile.
+    type: string
+    default: .
+  pod-install:
+    description: Should 'pod install' be run?
+    type: boolean
+    default: true
+  cocoapods-working-directory:
+    description: The directory containing your project's Podfile and Podfile.lock.
+    type: string
+    default: .
+  carthage-update:
+    description: Should 'carthage update' be run?
+    type: boolean
+    default: false
+  carthage-working-directory:
+    description: The directory containing your project's Cartfile.
+    type: string
+    default: .
+
+executor_parameter: &executor_parameter
+  xcode-version:
+    description: The Xcode version to use.
+    type: string
+    default: "10.1.0"
+
 executors:
   default:
     description: |
@@ -22,10 +58,7 @@ jobs:
       Build and test an iOS project using xcodebuild
     parameters:
       # Executor options
-      xcode-version:
-        description: The Xcode version to use.
-        type: string
-        default: "10.1.0"
+      <<: *executor_parameter
       # Build options
       workspace:
         description: Workspace parameter to be passed to xcodebuild. e.g. MyProject.xcworkspace. A workspace or a project is required.
@@ -56,28 +89,7 @@ jobs:
         type: string
         default: iPhone XS
       # Dependency options
-      cache-prefix:
-        type: string
-        default: dependency-cache
-      bundle-install:
-        type: boolean
-        default: true
-      bundler-working-directory:
-        type: string
-        default: .
-      pod-install:
-        type: boolean
-        default: true
-      cocoapods-working-directory:
-        type: string
-        default: .
-      carthage-update:
-        type: boolean
-        default: false
-      carthage-working-directory:
-        type: string
-        default: .
-
+      <<: *dependency_parameters
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
@@ -145,16 +157,16 @@ jobs:
     description: |
       Run 'pod lib lint' on a provided .podspec file.
     parameters:
-      xcode-version:
-        description: The Xcode version to use.
-        type: string
-        default: "10.1.0"
+      <<: *executor_parameter
       podspec-path:
+        description: Path to the podspec file to validate.
         type: string
       bundle-install:
+        description: Should 'bundle install' be run? If true, 'bundle exec' will be used 'pod lib lint'.
         type: boolean
         default: true
       update-specs-repo:
+        description: Should the CocoaPods Specs repo be update with 'pod repo update' before validating?
         type: boolean
         default: false
     executor:
@@ -186,27 +198,7 @@ commands:
     description: |
       Installs dependencies in the current workspace and caches the results.
     parameters:
-      cache-prefix:
-        type: string
-        default: ios-{{ .Environment.CIRCLE_JOB }}
-      bundle-install:
-        type: boolean
-        default: true
-      bundler-working-directory:
-        type: string
-        default: .
-      pod-install:
-        type: boolean
-        default: true
-      cocoapods-working-directory:
-        type: string
-        default: .
-      carthage-update:
-        type: boolean
-        default: false
-      carthage-working-directory:
-        type: string
-        default: .
+      <<: *dependency_parameters
     steps:
       - restore_cache:
           keys:
@@ -251,7 +243,7 @@ commands:
                 command: test $SKIP_POD_INSTALL || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
             - run:
                 name: Pod Install (if needed)
-                command: | 
+                command: |
                   cd "<< parameters.cocoapods-working-directory >>"
 
                   if [ -n "$SKIP_POD_INSTALL" ]; then
