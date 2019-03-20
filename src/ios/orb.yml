@@ -5,24 +5,31 @@ description: |
 
 dependency_parameters: &dependency_parameters
   cache-prefix:
+    description: A prefix to use for the dependencies cache key.
     type: string
     default: ios-{{ .Environment.CIRCLE_JOB }}
   bundle-install:
+    description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
     type: boolean
     default: true
   bundler-working-directory:
+    description: The directory containing your project's Gemfile.
     type: string
     default: .
   pod-install:
+    description: Should 'pod install' be run?
     type: boolean
     default: true
   cocoapods-working-directory:
+    description: The directory containing your project's Podfile and Podfile.lock.
     type: string
     default: .
   carthage-update:
+    description: Should 'carthage update' be run?
     type: boolean
     default: false
   carthage-working-directory:
+    description: The directory containing your project's Cartfile.
     type: string
     default: .
 
@@ -152,11 +159,14 @@ jobs:
     parameters:
       <<: *executor_parameter
       podspec-path:
+        description: Path to the podspec file to validate.
         type: string
       bundle-install:
+        description: Should 'bundle install' be run? If true, 'bundle exec' will be used 'pod lib lint'.
         type: boolean
         default: true
       update-specs-repo:
+        description: Should the CocoaPods Specs repo be update with 'pod repo update' before validating?
         type: boolean
         default: false
     executor:
