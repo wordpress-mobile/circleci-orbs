@@ -99,7 +99,16 @@ jobs:
           name: Boot simulator
           command: |
             # Get the UDID of the "<< parameters.device >>" with "iOS << parameters.ios-version >>"
-            UDID=$(xcrun simctl list -j | jq -r "[.devices[\"iOS << parameters.ios-version >>\"][] | select (.name == \"<< parameters.device >>\" and .availability == \"(available)\")][0] | .udid")
+            DEVICES_KEY="iOS << parameters.ios-version >>"
+
+            # Xcode 10.2 changes the format of `xcrun simctl list -j`
+            # The 'devices' object now uses the runtime identifiers as its keys instead of the iOS version
+            if [ $(ruby -e "puts '<< parameters.xcode-version >>' >= '10.2.0'") == "true" ]; then
+              DEVICES_KEY=$(xcrun simctl list -j | jq -r '[.runtimes[] | select (.name == "iOS << parameters.ios-version >>")][0] | .identifier')
+            fi
+
+            UDID=$(xcrun simctl list -j | jq -r "[.devices[\"$DEVICES_KEY\"][] | select(.name | test(\"<< parameters.device >>\"; \"i\")) | select (.availability == \"(available)\")][0] | .udid")
+
             xcrun simctl boot $UDID # Boot simulator in the background
             echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
           background: true
