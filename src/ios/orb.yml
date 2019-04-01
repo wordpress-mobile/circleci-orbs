@@ -147,7 +147,8 @@ jobs:
       - run:
           name: Build
           command: |
-            xcodebuild build-for-testing $XCODEBUILD_ARGS | xcpretty
+            mkdir ~/logs
+            xcodebuild build-for-testing $XCODEBUILD_ARGS | tee ~/logs/build.log | xcpretty
       - run:
           name: Wait for simulator
           command: |
@@ -159,9 +160,11 @@ jobs:
       - run:
           name: Test
           command: |
-            xcodebuild test-without-building $XCODEBUILD_ARGS -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" | xcpretty -r junit
+            xcodebuild test-without-building $XCODEBUILD_ARGS -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" | tee ~/logs/test.log | xcpretty -r junit
       - store_test_results:
           path: build/reports
+      - store_artifacts:
+          path: ~/logs
   validate-podspec:
     description: |
       Run 'pod lib lint' on a provided .podspec file.
