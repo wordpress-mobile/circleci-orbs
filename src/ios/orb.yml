@@ -324,4 +324,5 @@ commands:
           paths:
             - << parameters.bundler-working-directory >>/vendor/bundle
             - << parameters.cocoapods-working-directory >>/Pods/
+            - << parameters.cocoapods-working-directory >>/Rome/
             - << parameters.carthage-working-directory >>/Carthage/
