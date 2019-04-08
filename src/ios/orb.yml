@@ -58,10 +58,7 @@ executors:
       An executor with sensible defaults for iOS builds.
       See supported versions here: https://circleci.com/docs/2.0/testing-ios/#supported-xcode-versions
     parameters:
-      xcode-version:
-        description: The Xcode version to use.
-        type: string
-        default: "10.1.0"
+      <<: *executor_parameter
     macos:
       xcode: << parameters.xcode-version >>
 
@@ -127,7 +124,7 @@ jobs:
           background: true
       - checkout
       - install-dependencies:
-          cache-prefix: << parameters.cache-prefix >>
+          cache-prefix: << parameters.cache-prefix >>-<< parameters.xcode-version >>
           bundle-install: << parameters.bundle-install >>
           bundler-working-directory: << parameters.bundler-working-directory >>
           pod-install: << parameters.pod-install >>
@@ -242,21 +239,29 @@ commands:
     parameters:
       <<: *dependency_parameters
     steps:
-      - restore_cache:
-          keys:
-            - "<< parameters.cache-prefix >>-\
-               <<# parameters.bundle-install >>{{ checksum \"<< parameters.bundler-working-directory >>/Gemfile.lock\" }}-<</ parameters.bundle-install >>\
-               <<# parameters.pod-install >>{{ checksum \"<< parameters.cocoapods-working-directory >>/Podfile.lock\" }}-<</ parameters.pod-install >>\
-               <<# parameters.carthage-update >>{{ checksum \"<< parameters.carthage-working-directory >>/Cartfile.resolved\" }}-<</ parameters.carthage-update >>"
       - when:
           condition: << parameters.bundle-install >>
           steps:
+            - restore_cache:
+                name: Restore Bundler cache
+                keys:
+                  - << parameters.cache-prefix >>-bundler-{{ arch }}-{{ checksum "<< parameters.bundler-working-directory >>/Gemfile.lock" }}
+                  - << parameters.cache-prefix >>-bundler-{{ arch }}-
             - run:
                 name: Bundle install
                 command: cd "<< parameters.bundler-working-directory >>" && bundle install --path=vendor/bundle
+            - save_cache:
+                name: Save Bundler cache
+                key: << parameters.cache-prefix >>-bundler-{{ arch }}-{{ checksum "<< parameters.bundler-working-directory >>/Gemfile.lock" }}
+                paths:
+                  - << parameters.bundler-working-directory >>/vendor/bundle
       - when:
           condition: << parameters.pod-install >>
           steps:
+            - restore_cache:
+                name: Restore CocoaPods cache
+                keys:
+                  - << parameters.cache-prefix >>-pods-{{ arch }}-{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}
             - run:
                 name: CocoaPods check
                 command: |
@@ -309,19 +314,23 @@ commands:
                   fi
                 environment:
                   COCOAPODS_DISABLE_STATS: true
+            - save_cache:
+                name: Save CocoaPods cache
+                key: << parameters.cache-prefix >>-pods-{{ arch }}-{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}
+                paths:
+                  - << parameters.cocoapods-working-directory >>/Pods/
       - when:
           condition: << parameters.carthage-update >>
           steps:
+            - restore_cache:
+                name: Restore Carthage cache
+                keys:
+                  - << parameters.cache-prefix >>-carthage-{{ arch }}-{{ checksum "<< parameters.carthage-working-directory >>/Cartfile.resolved" }}
             - run:
                 name: Carthage Update
                 command: cd "<< parameters.carthage-working-directory >>" && carthage update --cache-builds
-
-      - save_cache:
-          key: "<< parameters.cache-prefix >>-\
-                <<# parameters.bundle-install >>{{ checksum \"<< parameters.bundler-working-directory >>/Gemfile.lock\" }}-<</ parameters.bundle-install >>\
-                <<# parameters.pod-install >>{{ checksum \"<< parameters.cocoapods-working-directory >>/Podfile.lock\" }}-<</ parameters.pod-install >>\
-                <<# parameters.carthage-update >>{{ checksum \"<< parameters.carthage-working-directory >>/Cartfile.resolved\" }}-<</ parameters.carthage-update >>"
-          paths:
-            - << parameters.bundler-working-directory >>/vendor/bundle
-            - << parameters.cocoapods-working-directory >>/Pods/
-            - << parameters.carthage-working-directory >>/Carthage/
+            - save_cache:
+                name: Save Carthage cache
+                key: << parameters.cache-prefix >>-carthage-{{ arch }}-{{ checksum "<< parameters.carthage-working-directory >>/Cartfile.resolved" }}
+                paths:
+                  - << parameters.carthage-working-directory >>/Carthage/
