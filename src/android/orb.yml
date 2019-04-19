@@ -7,12 +7,11 @@ executors:
   default:
     description: An executor with sensible defaults for Android Gradle tasks (set with GRADLE_OPTS).
     parameters:
-      api-version:
-        description: The Android API version to use.
+      image:
+        description: The CircleCI image to use. e.g. circleci/android:api-28
         type: string
-        default: "27"
     docker:
-      - image: circleci/android:api-<<parameters.api-version>>
+      - image: <<parameters.image>>
         environment:
           # kotlin.incremental=false and kotlin.compiler.execution.strategy=in-process are required due to an issue with the Kotlin compiler in
           # memory constrained environments: https://youtrack.jetbrains.com/issue/KT-15562
