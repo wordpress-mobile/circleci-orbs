@@ -279,15 +279,20 @@ commands:
                   # Remove trap (so we don't print the lockfile error)
                   trap - ERR
 
+                  # This checks if the Podfile uses the master specs repo
+                  DOWNLOAD_MASTER_SPECS=$(ruby -e "require 'yaml';puts YAML.load_file('Podfile.lock')['SPEC REPOS'].include? 'https://github.com/cocoapods/specs.git'")
+
                   if diff Podfile.lock Pods/Manifest.lock; then
                     echo "Podfile.lock matches Pods/Manifest.lock. Skipping installing pods ..."
                     echo 'export SKIP_POD_INSTALL=1' >> $BASH_ENV
+                    echo 'export SKIP_DOWNLOAD_SPECS=1' >> $BASH_ENV
                   else
                     echo "Podfile.lock does not match Pods/Manifest.lock. Pods will be installed ..."
+                    echo 'export SKIP_DOWNLOAD_SPECS=$DOWNLOAD_MASTER_SPECS' >> $BASH_ENV
                   fi
-            - run:
-                name: Fetch CocoaPods Specs (if needed)
-                command: test $SKIP_POD_INSTALL || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+            # - run:
+            #     name: Fetch CocoaPods Specs (if needed)
+            #     command: test $SKIP_DOWNLOAD_SPECS || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
             - run:
                 name: Pod Install (if needed)
                 command: |
