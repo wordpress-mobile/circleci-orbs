@@ -91,9 +91,9 @@ jobs:
         type: string
         default: Debug
       ios-version:
-        description: The iOS simulator version to run tests on.
+        description: The iOS simulator version to run tests on. Defaults to the latest available version.
         type: string
-        default: "12.1"
+        default: ""
       device:
         description: The iOS simulator device to run tests on.
         type: string
@@ -108,16 +108,22 @@ jobs:
           # xcodebuild can behave unpredictably if the simulator is not already booted, so we boot it explicitly here
           name: Boot simulator
           command: |
-            # Get the UDID of the "<< parameters.device >>" with "iOS << parameters.ios-version >>"
-            DEVICES_KEY="iOS << parameters.ios-version >>"
+            IOS_VERSION="<< parameters.ios-version >>"
+            if [ -z "$IOS_VERSION" ]; then
+              # If ios-version wasn't provided, default to the latest
+              IOS_VERSION=$(xcrun simctl list -j | jq -r '[.runtimes[] | select(.name|test("iOS."))] | sort_by(.version) | .[-1] | .version')
+            fi
+
+            # Get the UDID of the "<< parameters.device >>" with the correct iOS version
+            DEVICES_KEY="iOS $IOS_VERSION"
 
             # Xcode 10.2 changes the format of `xcrun simctl list -j`
             # The 'devices' object now uses the runtime identifiers as its keys instead of the iOS version
             if [ $(ruby -e "puts '<< parameters.xcode-version >>' >= '10.2.0'") == "true" ]; then
-              DEVICES_KEY=$(xcrun simctl list -j | jq -r '[.runtimes[] | select (.name == "iOS << parameters.ios-version >>")][0] | .identifier')
+              DEVICES_KEY=$(xcrun simctl list -j | jq -r --arg DEVICES_KEY "$DEVICES_KEY" '[.runtimes[] | select (.name==$DEVICES_KEY)][0] | .identifier')
             fi
 
-            UDID=$(xcrun simctl list -j | jq -r "[.devices[\"$DEVICES_KEY\"][] | select(.name | test(\"<< parameters.device >>\"; \"i\")) | select (.availability == \"(available)\")][0] | .udid")
+            UDID=$(xcrun simctl list -j | jq -r --arg DEVICES_KEY "$DEVICES_KEY" '[.devices[$DEVICES_KEY][] | select(.name | test("<< parameters.device >>"; "i")) | select (.availability == "(available)")][0] | .udid')
 
             xcrun simctl boot $UDID # Boot simulator in the background
             echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
