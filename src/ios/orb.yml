@@ -52,6 +52,41 @@ podspec_parameters: &podspec_parameters
     type: boolean
     default: false
 
+test_parameters: &test_parameters
+  # Executor options
+  <<: *executor_parameter
+  # Build options
+  workspace:
+    description: Workspace parameter to be passed to xcodebuild. e.g. MyProject.xcworkspace. A workspace or a project is required.
+    type: string
+    default: ""
+  project:
+    description: Project parameter to be passed to xcodebuild. e.g. MyProject.xcodeproj. A workspace or a project is required.
+    type: string
+    default: ""
+  scheme:
+    description: Scheme parameter for xcodebuild. e.g. MyProject. A scheme or a target is required.
+    type: string
+    default: ""
+  target:
+    description: Target parameter for xcodebuild. e.g. MyProject. A scheme or a target is required.
+    type: string
+    default: ""
+  configuration:
+    description: Configuration paramter for xcodebuild. e.g. Debug.
+    type: string
+    default: Debug
+  ios-version:
+    description: The iOS simulator version to run tests on. Defaults to the latest available version.
+    type: string
+    default: ""
+  device:
+    description: The iOS simulator device to run tests on.
+    type: string
+    default: iPhone XS
+  # Dependency options
+  <<: *dependency_parameters
+
 executors:
   default:
     description: |
@@ -67,42 +102,58 @@ jobs:
     description: |
       Build and test an iOS project using xcodebuild
     parameters:
-      # Executor options
-      <<: *executor_parameter
-      # Build options
-      workspace:
-        description: Workspace parameter to be passed to xcodebuild. e.g. MyProject.xcworkspace. A workspace or a project is required.
-        type: string
-        default: ""
-      project:
-        description: Project parameter to be passed to xcodebuild. e.g. MyProject.xcodeproj. A workspace or a project is required.
-        type: string
-        default: ""
-      scheme:
-        description: Scheme parameter for xcodebuild. e.g. MyProject. A scheme or a target is required.
-        type: string
-        default: ""
-      target:
-        description: Target parameter for xcodebuild. e.g. MyProject. A scheme or a target is required.
-        type: string
-        default: ""
-      configuration:
-        description: Configuration paramter for xcodebuild. e.g. Debug.
-        type: string
-        default: Debug
-      ios-version:
-        description: The iOS simulator version to run tests on. Defaults to the latest available version.
-        type: string
-        default: ""
-      device:
-        description: The iOS simulator device to run tests on.
-        type: string
-        default: iPhone XS
-      # Dependency options
-      <<: *dependency_parameters
+      <<: *test_parameters
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
+    steps:
+      - checkout
+      - test
+  validate-podspec:
+    description: |
+      Run 'pod lib lint' on a provided .podspec file.
+    parameters:
+      <<: *executor_parameter
+      <<: *podspec_parameters
+    executor:
+      name: default
+      xcode-version: << parameters.xcode-version >>
+    steps:
+      - checkout
+      - prepare-podspec:
+          podspec-path: << parameters.podspec-path >>
+          bundle-install: << parameters.bundle-install >>
+          update-specs-repo: << parameters.update-specs-repo >>
+      - run:
+          name: Validate podspec
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --verbose "<< parameters.podspec-path >>"
+  publish-podspec:
+    description: |
+      Publishes the provided .podspec file to trunk using 'pod trunk push'.
+
+      Note: A COCOAPODS_TRUNK_TOKEN environment variable should be set for your project.
+    parameters:
+      <<: *executor_parameter
+      <<: *podspec_parameters
+    executor:
+      name: default
+      xcode-version: << parameters.xcode-version >>
+    steps:
+      - checkout
+      - prepare-podspec:
+          podspec-path: << parameters.podspec-path >>
+          bundle-install: << parameters.bundle-install >>
+          update-specs-repo: << parameters.update-specs-repo >>
+      - run:
+          name: Publish podspec
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
+
+commands:
+  test:
+    description: |
+      Build and test an iOS project using xcodebuild
+    parameters:
+      <<: *test_parameters
     steps:
       - run:
           # xcodebuild can behave unpredictably if the simulator is not already booted, so we boot it explicitly here
@@ -128,7 +179,6 @@ jobs:
             xcrun simctl boot $UDID # Boot simulator in the background
             echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
           background: true
-      - checkout
       - install-dependencies:
           cache-prefix: << parameters.cache-prefix >>-<< parameters.xcode-version >>
           bundle-install: << parameters.bundle-install >>
@@ -178,46 +228,6 @@ jobs:
             xcodebuild test-without-building $XCODEBUILD_ARGS -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" | xcpretty -r junit
       - store_test_results:
           path: build/reports
-  validate-podspec:
-    description: |
-      Run 'pod lib lint' on a provided .podspec file.
-    parameters:
-      <<: *executor_parameter
-      <<: *podspec_parameters
-    executor:
-      name: default
-      xcode-version: << parameters.xcode-version >>
-    steps:
-      - checkout
-      - prepare-podspec:
-          podspec-path: << parameters.podspec-path >>
-          bundle-install: << parameters.bundle-install >>
-          update-specs-repo: << parameters.update-specs-repo >>
-      - run:
-          name: Validate podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --verbose "<< parameters.podspec-path >>"
-  publish-podspec:
-    description: |
-      Publishes the provided .podspec file to trunk using 'pod trunk push'.
-
-      Note: A COCOAPODS_TRUNK_TOKEN environment variable should be set for your project.
-    parameters:
-      <<: *executor_parameter
-      <<: *podspec_parameters
-    executor:
-      name: default
-      xcode-version: << parameters.xcode-version >>
-    steps:
-      - checkout
-      - prepare-podspec:
-          podspec-path: << parameters.podspec-path >>
-          bundle-install: << parameters.bundle-install >>
-          update-specs-repo: << parameters.update-specs-repo >>
-      - run:
-          name: Publish podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
-
-commands:
   prepare-podspec:
     description: |
       Prepare to run CococaPods commands on a .podspec file. Runs 'bundle install' and downloads/updates the CocoaPods specs repo if needed.
