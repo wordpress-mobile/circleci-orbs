@@ -108,7 +108,22 @@ jobs:
       xcode-version: << parameters.xcode-version >>
     steps:
       - checkout
-      - test
+      - test:
+          xcode-version: << parameters.xcode-version >>
+          workspace: << parameters.workspace >>
+          project: << parameters.project >>
+          scheme: << parameters.scheme >>
+          target: << parameters.target >>
+          configuration: << parameters.configuration >>
+          ios-version: << parameters.ios-version >>
+          device: << parameters.device >>
+          cache-prefix: << parameters.cache-prefix >>
+          bundle-install: << parameters.bundle-install >>
+          bundler-working-directory: << parameters.bundler-working-directory >>
+          pod-install: << parameters.pod-install >>
+          cocoapods-working-directory: << parameters.cocoapods-working-directory >>
+          carthage-update: << parameters.carthage-update >>
+          carthage-working-directory: << parameters.carthage-working-directory >>
   validate-podspec:
     description: |
       Run 'pod lib lint' on a provided .podspec file.
