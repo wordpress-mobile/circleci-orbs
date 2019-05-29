@@ -321,19 +321,43 @@ commands:
 
                   if diff Podfile.lock Pods/Manifest.lock; then
                     echo "Podfile.lock matches Pods/Manifest.lock. Skipping installing pods ..."
-                    echo 'export SKIP_POD_INSTALL=1' >> $BASH_ENV
+                    echo 'export SKIP_POD_INSTALL=true' >> $BASH_ENV
                   else
                     echo "Podfile.lock does not match Pods/Manifest.lock. Pods will be installed ..."
                   fi
             - run:
+                name: Generate CocoaPods Specs cache
+                command: |
+                  if [ "$SKIP_POD_INSTALL" = true ]; then
+                    # If we are skipping pod install, use a random cache key so we don't waste time downloading the cache
+                    uuidgen > specs-cache-key.txt
+                  else
+                    echo "pod-spec-cache" > specs-cache-key.txt
+                  fi
+            - restore_cache:
+                name: Restore CocoaPods Specs cache
+                keys:
+                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
+                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}
+                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}
+            - run:
                 name: Fetch CocoaPods Specs (if needed)
-                command: test $SKIP_POD_INSTALL || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+                command: |
+                  USES_MASTER_SPECS=$(ruby -e "require 'yaml';puts YAML.load_file('Podfile.lock')['SPEC REPOS'].include? 'https://github.com/cocoapods/specs.git'")
+
+                  if [ "$SKIP_POD_INSTALL" = true ]; then
+                    echo "Pod install is skipped, not downloading specs."
+                  elif [ "$USES_MASTER_SPECS" = false ]; then
+                    echo "Podfile.lock does not use the master specs repo, skipping download."
+                  else
+                    curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+                  fi
             - run:
                 name: Pod Install (if needed)
                 command: |
                   cd "<< parameters.cocoapods-working-directory >>"
 
-                  if [ -n "$SKIP_POD_INSTALL" ]; then
+                  if [ "$SKIP_POD_INSTALL" = true ]; then
                     echo "Skipping pod install ..."
                   else
                     # Get the shasum of Podfile.lock before installing pods
@@ -359,6 +383,11 @@ commands:
                 key: << parameters.cache-prefix >>-pods-{{ arch }}-{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}
                 paths:
                   - << parameters.cocoapods-working-directory >>/Pods/
+            - save_cache:
+                name: Save CocoaPods Specs cache
+                key: << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
+                paths:
+                  - ~/Library/Caches/CocoaPods
       - when:
           condition: << parameters.carthage-update >>
           steps:
