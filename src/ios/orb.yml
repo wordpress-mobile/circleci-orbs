@@ -228,7 +228,8 @@ commands:
       - run:
           name: Build
           command: |
-            xcodebuild build-for-testing $XCODEBUILD_ARGS | xcpretty
+            mkdir -p logs
+            xcodebuild build-for-testing $XCODEBUILD_ARGS | tee logs/build.log | xcpretty
       - run:
           name: Wait for simulator
           command: |
@@ -240,9 +241,17 @@ commands:
       - run:
           name: Test
           command: |
-            xcodebuild test-without-building $XCODEBUILD_ARGS -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" | xcpretty -r junit
+            xcodebuild test-without-building $XCODEBUILD_ARGS -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" | tee logs/test.log | xcpretty -r junit
       - store_test_results:
           path: build/reports
+      - store_artifacts:
+          name: Save xcodebuild logs
+          path: logs
+          destination: logs
+      - store_artifacts:
+          name: Save crash logs
+          path: ~/Library/Logs/DiagnosticReports/
+          destination: crashes
   prepare-podspec:
     description: |
       Prepare to run CococaPods commands on a .podspec file. Runs 'bundle install' and downloads/updates the CocoaPods specs repo if needed.
