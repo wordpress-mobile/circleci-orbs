@@ -33,7 +33,7 @@ dependency_parameters: &dependency_parameters
     type: string
     default: .
 
-executor_parameter: &executor_parameter
+xcode_version_parameter: &xcode_version_parameter
   xcode-version:
     description: The Xcode version to use.
     type: string
@@ -52,9 +52,19 @@ podspec_parameters: &podspec_parameters
     type: boolean
     default: false
 
+device_parameters: &device_parameters
+  ios-version:
+    description: The iOS simulator version to use. Defaults to the latest available version.
+    type: string
+    default: ""
+  device:
+    description: The iOS simulator device to use.
+    type: string
+    default: iPhone XS
+
 test_parameters: &test_parameters
   # Executor options
-  <<: *executor_parameter
+  <<: *xcode_version_parameter
   # Build options
   workspace:
     description: Workspace parameter to be passed to xcodebuild. e.g. MyProject.xcworkspace. A workspace or a project is required.
@@ -76,14 +86,8 @@ test_parameters: &test_parameters
     description: Configuration paramter for xcodebuild. e.g. Debug.
     type: string
     default: Debug
-  ios-version:
-    description: The iOS simulator version to run tests on. Defaults to the latest available version.
-    type: string
-    default: ""
-  device:
-    description: The iOS simulator device to run tests on.
-    type: string
-    default: iPhone XS
+  # Device parameters
+  <<: *device_parameters
   # Dependency options
   <<: *dependency_parameters
 
@@ -93,7 +97,7 @@ executors:
       An executor with sensible defaults for iOS builds.
       See supported versions here: https://circleci.com/docs/2.0/testing-ios/#supported-xcode-versions
     parameters:
-      <<: *executor_parameter
+      <<: *xcode_version_parameter
     macos:
       xcode: << parameters.xcode-version >>
 
@@ -128,7 +132,7 @@ jobs:
     description: |
       Run 'pod lib lint' on a provided .podspec file.
     parameters:
-      <<: *executor_parameter
+      <<: *xcode_version_parameter
       <<: *podspec_parameters
     executor:
       name: default
@@ -148,7 +152,7 @@ jobs:
 
       Note: A COCOAPODS_TRUNK_TOKEN environment variable should be set for your project.
     parameters:
-      <<: *executor_parameter
+      <<: *xcode_version_parameter
       <<: *podspec_parameters
     executor:
       name: default
@@ -164,14 +168,14 @@ jobs:
           command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
 
 commands:
-  test:
+  boot-simulator:
     description: |
-      Build and test an iOS project using xcodebuild
+      Boot an iOS simulator in the background.
     parameters:
-      <<: *test_parameters
+      <<: *xcode_version_parameter
+      <<: *device_parameters
     steps:
       - run:
-          # xcodebuild can behave unpredictably if the simulator is not already booted, so we boot it explicitly here
           name: Boot simulator
           command: |
             IOS_VERSION="<< parameters.ios-version >>"
@@ -194,6 +198,29 @@ commands:
             xcrun simctl boot $UDID # Boot simulator in the background
             echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
           background: true
+  wait-for-simulator:
+    description: |
+      Wait for the iOS Simulator booted with 'boot-simulator' to finish launching.
+    steps:
+      - run:
+          name: Wait for simulator
+          command: |
+            touch $BASH_ENV
+            while [ -z "$SIMULATOR_UDID" ]; do
+                sleep 1
+                source $BASH_ENV
+            done
+  test:
+    description: |
+      Build and test an iOS project using xcodebuild
+    parameters:
+      <<: *test_parameters
+    steps:
+      # xcodebuild can behave unpredictably if the simulator is not already booted, so we boot it explicitly here
+      - boot-simulator:
+          xcode-version: << parameters.xcode-version >>
+          ios-version: << parameters.ios-version >>
+          device: << parameters.device >>
       - install-dependencies:
           cache-prefix: << parameters.cache-prefix >>-<< parameters.xcode-version >>
           bundle-install: << parameters.bundle-install >>
@@ -230,14 +257,7 @@ commands:
           command: |
             mkdir -p logs
             xcodebuild build-for-testing $XCODEBUILD_ARGS | tee logs/build.log | xcpretty
-      - run:
-          name: Wait for simulator
-          command: |
-            touch $BASH_ENV
-            while [ -z "$SIMULATOR_UDID" ]; do
-                sleep 1
-                source $BASH_ENV
-            done
+      - wait-for-simulator
       - run:
           name: Test
           command: |
