@@ -47,10 +47,6 @@ podspec_parameters: &podspec_parameters
     description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
     type: boolean
     default: true
-  update-specs-repo:
-    description: Should the CocoaPods Specs repo be updated with 'pod repo update' before running?
-    type: boolean
-    default: false
 
 test_parameters: &test_parameters
   # Executor options
@@ -130,6 +126,14 @@ jobs:
     parameters:
       <<: *executor_parameter
       <<: *podspec_parameters
+      sources:
+        description: The --sources option to pass to 'pod lib lint'.
+        type: string
+        default: master
+      update-specs-repo:
+        description: Should the CocoaPods Specs repo be updated with 'pod repo update' before running?
+        type: boolean
+        default: false
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
@@ -138,10 +142,16 @@ jobs:
       - prepare-podspec:
           podspec-path: << parameters.podspec-path >>
           bundle-install: << parameters.bundle-install >>
-          update-specs-repo: << parameters.update-specs-repo >>
+          sources: << parameters.sources >>
+      - when:
+          condition: << parameters.update-specs-repo >>
+          steps:
+            - run:
+                name: Update CocoaPods Specs
+                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
       - run:
           name: Validate podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --verbose "<< parameters.podspec-path >>"
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose "<< parameters.podspec-path >>"
   publish-podspec:
     description: |
       Publishes the provided .podspec file to trunk using 'pod trunk push'.
@@ -158,12 +168,39 @@ jobs:
       - prepare-podspec:
           podspec-path: << parameters.podspec-path >>
           bundle-install: << parameters.bundle-install >>
-          update-specs-repo: << parameters.update-specs-repo >>
+          sources: master
       - run:
           name: Publish podspec
           command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
 
 commands:
+  prepare-podspec:
+    description: |
+      Prepare to run CococaPods commands on a .podspec file. Runs 'bundle install' and downloads/updates the CocoaPods specs repo if needed.
+    parameters:
+      <<: *podspec_parameters
+      sources:
+        description: The CocoaPods specs repos to use. e.g. https://github.com/artsy/Specs,master
+        type: string
+        default: master
+    steps:
+      - when:
+          condition: << parameters.bundle-install >>
+          steps:
+            -  install-dependencies:
+                 pod-install: false
+                 bundle-install: true
+      - run:
+          name: Fetch CocoaPods Specs (if needed)
+          command: |
+            # Check if the sources parameter includes the master specs repo
+            SOURCES=$(echo "<< parameters.sources >>" | tr '[:upper:]' '[:lower:]')
+            SOURCES_ARR=${SOURCES//,/ }
+            if [[ " ${SOURCES_ARR[@]} " =~ " master " ]] || [[ " ${SOURCES_ARR[@]} " =~ " https://github.com/cocoapods/specs " ]]; then
+                curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+            else
+                echo "Doesn't use master specs repo. Skipping download ..."
+            fi
   test:
     description: |
       Build and test an iOS project using xcodebuild
@@ -252,27 +289,6 @@ commands:
           name: Save crash logs
           path: ~/Library/Logs/DiagnosticReports/
           destination: crashes
-  prepare-podspec:
-    description: |
-      Prepare to run CococaPods commands on a .podspec file. Runs 'bundle install' and downloads/updates the CocoaPods specs repo if needed.
-    parameters:
-      <<: *podspec_parameters
-    steps:
-      - when:
-          condition: << parameters.bundle-install >>
-          steps:
-            -  install-dependencies:
-                 pod-install: false
-                 bundle-install: true
-      - run:
-          name: Fetch CocoaPods Specs
-          command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
-      - when:
-          condition: << parameters.update-specs-repo >>
-          steps:
-            - run:
-                name: Update CocoaPods Specs
-                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
   install-dependencies:
     description: |
       Installs dependencies in the current workspace and caches the results.
