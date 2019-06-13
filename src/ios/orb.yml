@@ -47,10 +47,6 @@ podspec_parameters: &podspec_parameters
     description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
     type: boolean
     default: true
-  update-specs-repo:
-    description: Should the CocoaPods Specs repo be updated with 'pod repo update' before running?
-    type: boolean
-    default: false
 
 device_parameters: &device_parameters
   ios-version:
@@ -134,6 +130,14 @@ jobs:
     parameters:
       <<: *xcode_version_parameter
       <<: *podspec_parameters
+      sources:
+        description: The --sources option to pass to 'pod lib lint'.
+        type: string
+        default: master
+      update-specs-repo:
+        description: Should the CocoaPods Specs repo be updated with 'pod repo update' before running?
+        type: boolean
+        default: false
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
@@ -142,10 +146,16 @@ jobs:
       - prepare-podspec:
           podspec-path: << parameters.podspec-path >>
           bundle-install: << parameters.bundle-install >>
-          update-specs-repo: << parameters.update-specs-repo >>
+          sources: << parameters.sources >>
+      - when:
+          condition: << parameters.update-specs-repo >>
+          steps:
+            - run:
+                name: Update CocoaPods Specs
+                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
       - run:
           name: Validate podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --verbose "<< parameters.podspec-path >>"
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose "<< parameters.podspec-path >>"
   publish-podspec:
     description: |
       Publishes the provided .podspec file to trunk using 'pod trunk push'.
@@ -162,12 +172,39 @@ jobs:
       - prepare-podspec:
           podspec-path: << parameters.podspec-path >>
           bundle-install: << parameters.bundle-install >>
-          update-specs-repo: << parameters.update-specs-repo >>
+          sources: master
       - run:
           name: Publish podspec
           command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
 
 commands:
+  prepare-podspec:
+    description: |
+      Prepare to run CococaPods commands on a .podspec file. Runs 'bundle install' and downloads/updates the CocoaPods specs repo if needed.
+    parameters:
+      <<: *podspec_parameters
+      sources:
+        description: The CocoaPods specs repos to use. e.g. https://github.com/artsy/Specs,master
+        type: string
+        default: master
+    steps:
+      - when:
+          condition: << parameters.bundle-install >>
+          steps:
+            -  install-dependencies:
+                 pod-install: false
+                 bundle-install: true
+      - run:
+          name: Fetch CocoaPods Specs (if needed)
+          command: |
+            # Check if the sources parameter includes the master specs repo
+            SOURCES=$(echo "<< parameters.sources >>" | tr '[:upper:]' '[:lower:]')
+            SOURCES_ARR=${SOURCES//,/ }
+            if [[ " ${SOURCES_ARR[@]} " =~ " master " ]] || [[ " ${SOURCES_ARR[@]} " =~ " https://github.com/cocoapods/specs " ]]; then
+                curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+            else
+                echo "Doesn't use master specs repo. Skipping download ..."
+            fi
   boot-simulator:
     description: |
       Boot an iOS simulator in the background.
@@ -291,27 +328,6 @@ commands:
           command: test-without-building
           arguments: $XCODEBUILD_ARGS -destination "platform=iOS Simulator,id=$SIMULATOR_UDID"
       - save-xcodebuild-artifacts
-  prepare-podspec:
-    description: |
-      Prepare to run CococaPods commands on a .podspec file. Runs 'bundle install' and downloads/updates the CocoaPods specs repo if needed.
-    parameters:
-      <<: *podspec_parameters
-    steps:
-      - when:
-          condition: << parameters.bundle-install >>
-          steps:
-            -  install-dependencies:
-                 pod-install: false
-                 bundle-install: true
-      - run:
-          name: Fetch CocoaPods Specs
-          command: curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
-      - when:
-          condition: << parameters.update-specs-repo >>
-          steps:
-            - run:
-                name: Update CocoaPods Specs
-                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
   install-dependencies:
     description: |
       Installs dependencies in the current workspace and caches the results.
@@ -360,19 +376,43 @@ commands:
 
                   if diff Podfile.lock Pods/Manifest.lock; then
                     echo "Podfile.lock matches Pods/Manifest.lock. Skipping installing pods ..."
-                    echo 'export SKIP_POD_INSTALL=1' >> $BASH_ENV
+                    echo 'export SKIP_POD_INSTALL=true' >> $BASH_ENV
                   else
                     echo "Podfile.lock does not match Pods/Manifest.lock. Pods will be installed ..."
                   fi
             - run:
+                name: Generate CocoaPods Specs cache
+                command: |
+                  if [ "$SKIP_POD_INSTALL" = true ]; then
+                    # If we are skipping pod install, use a random cache key so we don't waste time downloading the cache
+                    uuidgen > specs-cache-key.txt
+                  else
+                    echo "pod-spec-cache" > specs-cache-key.txt
+                  fi
+            - restore_cache:
+                name: Restore CocoaPods Specs cache
+                keys:
+                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
+                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}
+                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}
+            - run:
                 name: Fetch CocoaPods Specs (if needed)
-                command: test $SKIP_POD_INSTALL || curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+                command: |
+                  USES_MASTER_SPECS=$(ruby -e "require 'yaml';puts YAML.load_file('Podfile.lock')['SPEC REPOS'].include? 'https://github.com/cocoapods/specs.git'")
+
+                  if [ "$SKIP_POD_INSTALL" = true ]; then
+                    echo "Pod install is skipped, not downloading specs."
+                  elif [ "$USES_MASTER_SPECS" = false ]; then
+                    echo "Podfile.lock does not use the master specs repo, skipping download."
+                  else
+                    curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+                  fi
             - run:
                 name: Pod Install (if needed)
                 command: |
                   cd "<< parameters.cocoapods-working-directory >>"
 
-                  if [ -n "$SKIP_POD_INSTALL" ]; then
+                  if [ "$SKIP_POD_INSTALL" = true ]; then
                     echo "Skipping pod install ..."
                   else
                     # Get the shasum of Podfile.lock before installing pods
@@ -398,6 +438,11 @@ commands:
                 key: << parameters.cache-prefix >>-pods-{{ arch }}-{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}
                 paths:
                   - << parameters.cocoapods-working-directory >>/Pods/
+            - save_cache:
+                name: Save CocoaPods Specs cache
+                key: << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
+                paths:
+                  - ~/Library/Caches/CocoaPods
       - when:
           condition: << parameters.carthage-update >>
           steps:
