@@ -398,6 +398,8 @@ commands:
             - run:
                 name: Fetch CocoaPods Specs (if needed)
                 command: |
+                  cd "<< parameters.cocoapods-working-directory >>"
+
                   USES_MASTER_SPECS=$(ruby -e "require 'yaml';puts YAML.load_file('Podfile.lock')['SPEC REPOS'].include? 'https://github.com/cocoapods/specs.git'")
 
                   if [ "$SKIP_POD_INSTALL" = true ]; then
