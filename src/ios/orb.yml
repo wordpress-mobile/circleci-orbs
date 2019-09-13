@@ -201,7 +201,16 @@ commands:
             SOURCES=$(echo "<< parameters.sources >>" | tr '[:upper:]' '[:lower:]')
             SOURCES_ARR=${SOURCES//,/ }
             if [[ " ${SOURCES_ARR[@]} " =~ " master " ]] || [[ " ${SOURCES_ARR[@]} " =~ " https://github.com/cocoapods/specs " ]]; then
-                curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+                REPOS_LOCATION="$HOME/.cocoapods/repos"
+                tempfile=$(mktemp)
+
+                curl -sS -L -o "$tempfile" "https://cocoapods-specs.circleci.com/latest.tar.gz"
+                echo "Uncompressing CocoaPods master repo..."
+
+                # We expect the structure with the "master" as the top dir in the archive.
+                tar -C "$REPOS_LOCATION" -xzf "$tempfile"
+
+                echo "Successfully downloaded CocoaPods master repo."
             else
                 echo "Doesn't use master specs repo. Skipping download ..."
             fi
@@ -407,7 +416,16 @@ commands:
                   elif [ "$USES_MASTER_SPECS" = false ]; then
                     echo "Podfile.lock does not use the master specs repo, skipping download."
                   else
-                    curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+                                    REPOS_LOCATION="$HOME/.cocoapods/repos"
+                tempfile=$(mktemp)
+
+                curl -sS -L -o "$tempfile" "https://cocoapods-specs.circleci.com/latest.tar.gz"
+                echo "Uncompressing CocoaPods master repo..."
+
+                # We expect the structure with the "master" as the top dir in the archive.
+                tar -C "$REPOS_LOCATION" -xzf "$tempfile"
+
+                echo "Successfully downloaded CocoaPods master repo."
                   fi
             - run:
                 name: Pod Install (if needed)
