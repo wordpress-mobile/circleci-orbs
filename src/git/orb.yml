@@ -4,6 +4,16 @@ description: |
   Some common tasks for working with git and Github
 
 commands:
+  shallow-checkout:
+    description: Performs a shallow clone of the repository
+    steps:
+      - run:
+          name: Shallow checkout
+          command: |
+            git clone -b "${CIRCLE_BRANCH}" --depth 1 "${CIRCLE_REPOSITORY_URL}" .
+            git fetch --force --depth 1 origin "${CIRCLE_SHA1}"
+            git reset --hard "${CIRCLE_SHA1}"
+
   checkout-as-zip:
     description: Download the repository as a zip using the Github API
     parameters:
