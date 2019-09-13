@@ -1,0 +1,35 @@
+version: 2.1
+
+description: |
+  Some common tasks for working with git and Github
+
+commands:
+  checkout-as-zip:
+    description: Download the repository as a zip using the Github API
+    parameters:
+      use-merge:
+        description: Download the merge if this is a pull request
+        default: false
+        type: boolean
+    steps:
+      - run:
+          name: Download Github repository as zip
+          command:  |
+            REF="$CIRCLE_SHA1"
+            OUTPUT_DIRECTORY="$CIRCLE_PROJECT_REPONAME-$REF"
+
+            <<# parameters.use-merge >>
+            if [ -n "$CIRCLE_PULL_REQUEST" ] && [ "$CIRCLE_BRANCH" != "develop" ]; then
+              # Checkout merge if this is a PR
+              PR_NUMBER=$(basename $CIRCLE_PULL_REQUEST)
+              REF="pull/$PR_NUMBER/head"
+              OUTPUT_DIRECTORY="$CIRCLE_PROJECT_REPONAME-pull-$PR_NUMBER-head"
+            fi
+            <</ parameters.use-merge >>
+
+            cd ~
+            # Expand ~ in working directory path path
+            WD="${CIRCLE_WORKING_DIRECTORY/#\~/$HOME}"
+            rm -rf "$WD"
+            curl -s#L "https://github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME/archive/$REF.zip" | bsdtar -xvf-
+            mv "$OUTPUT_DIRECTORY" "$WD"
