@@ -87,6 +87,9 @@ test_parameters: &test_parameters
   # Dependency options
   <<: *dependency_parameters
 
+orbs:
+  slack: circleci/slack@3.3.0
+
 executors:
   default:
     description: |
@@ -164,6 +167,10 @@ jobs:
     parameters:
       <<: *xcode_version_parameter
       <<: *podspec_parameters
+      post-to-slack:
+        description: Post to Slack with the sucessful publish. PODS_SLACK_WEBHOOK ENV variable must be set.
+        type: boolean
+        default: false
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
@@ -174,8 +181,29 @@ jobs:
           bundle-install: << parameters.bundle-install >>
           sources: master
       - run:
+          name: Set Environment Variables
+          command: |
+            POD_NAME=$(<<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod ipc spec << parameters.podspec-path >> | jq '.name')
+            POD_VERSION=$(<<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod ipc spec << parameters.podspec-path >> | jq '.version')
+
+            echo "export POD_NAME=$POD_NAME" >> $BASH_ENV
+            echo "export POD_VERSION=$POD_VERSION" >> $BASH_ENV
+      - run:
+          name: Check tag
+          command: |
+            # If triggered by a tag, make sure the versions match
+            if [ ! -z "$CIRCLE_TAG" ] && [ "$CIRCLE_TAG" != "$POD_VERSION" ]; then
+              echo "Tag $CIRCLE_TAG does not match version $POD_VERSION from << parameters.podspec-path >>."; exit 1
+            fi
+      - run:
           name: Publish podspec
           command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
+      - when:
+          condition: << parameters.post-to-slack >>
+          steps:
+            - slack/notify:
+                message: ":tada: :ship: ${POD_NAME} ${POD_VERSION} successfully published to CocoaPods trunk!"
+                webhook: ${PODS_SLACK_WEBHOOK}
 
 commands:
   prepare-podspec:
