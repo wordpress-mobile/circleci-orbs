@@ -136,7 +136,7 @@ jobs:
       sources:
         description: The --sources option to pass to 'pod lib lint'.
         type: string
-        default: master
+        default: ""
       update-specs-repo:
         description: Should the CocoaPods Specs repo be updated with 'pod repo update' before running?
         type: boolean
@@ -179,7 +179,7 @@ jobs:
       - prepare-podspec:
           podspec-path: << parameters.podspec-path >>
           bundle-install: << parameters.bundle-install >>
-          sources: master
+          sources: ""
       - run:
           name: Set Environment Variables
           command: |
@@ -214,7 +214,7 @@ commands:
       sources:
         description: The CocoaPods specs repos to use. e.g. https://github.com/artsy/Specs,master
         type: string
-        default: master
+        default: ""
     steps:
       - when:
           condition: << parameters.bundle-install >>
@@ -225,13 +225,23 @@ commands:
       - run:
           name: Fetch CocoaPods Specs (if needed)
           command: |
-            # Check if the sources parameter includes the master specs repo
-            SOURCES=$(echo "<< parameters.sources >>" | tr '[:upper:]' '[:lower:]')
-            SOURCES_ARR=${SOURCES//,/ }
-            if [[ " ${SOURCES_ARR[@]} " =~ " master " ]] || [[ " ${SOURCES_ARR[@]} " =~ " https://github.com/cocoapods/specs " ]]; then
+            # If no explicit source given, determine the default for this version of CocoaPods
+            if [ -z "<< parameters.sources >>" ]; then
+              COCOAPODS_VERSION=$(<<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod --version)
+              if [ $(ruby -e "puts '$COCOAPODS_VERSION' >= '1.8.0'") == "true" ]; then
+                echo "No source provided and CocoaPods version is >= 1.8.0, not downloading master specs repo ..."
+              else
                 curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+              fi
             else
-                echo "Doesn't use master specs repo. Skipping download ..."
+              # Source provided, check if the sources parameter includes the master specs repo
+              SOURCES=$(echo "<< parameters.sources >>" | tr '[:upper:]' '[:lower:]')
+              SOURCES_ARR=${SOURCES//,/ }
+              if [[ " ${SOURCES_ARR[@]} " =~ " master " ]] || [[ " ${SOURCES_ARR[@]} " =~ " https://github.com/cocoapods/specs " ]]; then
+                  curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+              else
+                  echo "Doesn't use master specs repo. Skipping download ..."
+              fi
             fi
   boot-simulator:
     description: |
