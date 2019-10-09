@@ -206,8 +206,11 @@ jobs:
           condition: << parameters.post-to-slack >>
           steps:
             - slack/notify:
-                message: ":tada: :ship: ${POD_NAME} ${POD_VERSION} successfully published to CocoaPods trunk!"
+                message: ":tada: ${POD_NAME} ${POD_VERSION} successfully published to CocoaPods trunk!\nIt will take a few minutes for this version to be deployed to the CocoaPods CDN."
                 webhook: ${PODS_SLACK_WEBHOOK}
+                include_project_field: false
+                include_job_number_field: false
+                include_visit_job_action: false
 
 commands:
   prepare-podspec:
