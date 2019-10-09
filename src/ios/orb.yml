@@ -487,6 +487,7 @@ commands:
                 key: << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
                 paths:
                   - ~/Library/Caches/CocoaPods
+                  - ~/.cocoapods/repos/trunk
       - when:
           condition: << parameters.carthage-update >>
           steps:
