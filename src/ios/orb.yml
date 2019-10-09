@@ -11,7 +11,7 @@ dependency_parameters: &dependency_parameters
   bundle-install:
     description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
     type: boolean
-    default: true
+    default: false
   bundler-working-directory:
     description: The directory containing your project's Gemfile.
     type: string
@@ -19,7 +19,7 @@ dependency_parameters: &dependency_parameters
   pod-install:
     description: Should 'pod install' be run?
     type: boolean
-    default: true
+    default: false
   cocoapods-working-directory:
     description: The directory containing your project's Podfile and Podfile.lock.
     type: string
@@ -46,7 +46,7 @@ podspec_parameters: &podspec_parameters
   bundle-install:
     description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
     type: boolean
-    default: true
+    default: false
 
 device_parameters: &device_parameters
   ios-version:
