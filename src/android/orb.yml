@@ -19,6 +19,19 @@ executors:
           GRADLE_OPTS: -Xmx1536m -XX:+HeapDumpOnOutOfMemoryError -Dorg.gradle.caching=true -Dorg.gradle.configureondemand=true -Dkotlin.compiler.execution.strategy=in-process -Dkotlin.incremental=false
 
 commands:
+  with-gradle-cache:
+    parameters:
+      steps:
+        description: Steps that will be executed with the Gradle cache restored. It will be saved once complete.
+        type: steps
+        default: []
+      cache-prefix:
+        type: string
+        default: gradle-{{ .Environment.CIRCLE_JOB }}
+    steps:
+      - restore-gradle-cache
+      - steps: << parameters.steps >>
+      - save-gradle-cache
   generate-gradle-checksums:
     steps:
       - run:
