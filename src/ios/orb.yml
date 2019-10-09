@@ -141,6 +141,10 @@ jobs:
         description: Should the CocoaPods Specs repo be updated with 'pod repo update' before running?
         type: boolean
         default: false
+      additional-parameters:
+        description: Any additional parameters to pass to 'pod lib lint'. e.g. --include-podspecs=Other.podspec
+        type: string
+        default: ""
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
@@ -158,7 +162,7 @@ jobs:
                 command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
       - run:
           name: Validate podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose "<< parameters.podspec-path >>"
+          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose << parameters.additional-parameters >> "<< parameters.podspec-path >>"
   publish-podspec:
     description: |
       Publishes the provided .podspec file to trunk using 'pod trunk push'.
