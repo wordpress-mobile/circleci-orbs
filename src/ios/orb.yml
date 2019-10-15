@@ -445,7 +445,7 @@ commands:
                 command: |
                   cd "<< parameters.cocoapods-working-directory >>"
 
-                  USES_MASTER_SPECS=$(ruby -e "require 'yaml';repos = YAML.load_file('Podfile.lock')['SPEC REPOS'];puts (repos.nil? || repos.include?('https://github.com/cocoapods/specs.git'))")
+                  USES_MASTER_SPECS=$(ruby -e "require 'yaml';repos = YAML.load_file('Podfile.lock')['SPEC REPOS'];puts (repos.nil? || repos.keys.map(&:downcase).include?('https://github.com/cocoapods/specs.git'))")
 
                   if [ "$SKIP_POD_INSTALL" = true ]; then
                     echo "Pod install is skipped, not downloading specs."
