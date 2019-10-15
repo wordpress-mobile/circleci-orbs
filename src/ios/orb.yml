@@ -11,7 +11,7 @@ dependency_parameters: &dependency_parameters
   bundle-install:
     description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
     type: boolean
-    default: true
+    default: false
   bundler-working-directory:
     description: The directory containing your project's Gemfile.
     type: string
@@ -19,7 +19,7 @@ dependency_parameters: &dependency_parameters
   pod-install:
     description: Should 'pod install' be run?
     type: boolean
-    default: true
+    default: false
   cocoapods-working-directory:
     description: The directory containing your project's Podfile and Podfile.lock.
     type: string
@@ -46,7 +46,7 @@ podspec_parameters: &podspec_parameters
   bundle-install:
     description: Should 'bundle install' be run? If true, 'bundle exec' will be used for CocoaPods commands.
     type: boolean
-    default: true
+    default: false
 
 device_parameters: &device_parameters
   ios-version:
@@ -210,8 +210,11 @@ jobs:
           condition: << parameters.post-to-slack >>
           steps:
             - slack/notify:
-                message: ":tada: :ship: ${POD_NAME} ${POD_VERSION} successfully published to CocoaPods trunk!"
+                message: ":tada: ${POD_NAME} ${POD_VERSION} successfully published to CocoaPods trunk!\nIt will take a few minutes for this version to be deployed to the CocoaPods CDN."
                 webhook: ${PODS_SLACK_WEBHOOK}
+                include_project_field: false
+                include_job_number_field: false
+                include_visit_job_action: false
 
 commands:
   prepare-podspec:
@@ -468,7 +471,7 @@ commands:
                       command: |
                         cd "<< parameters.cocoapods-working-directory >>"
 
-                        USES_MASTER_SPECS=$(ruby -e "require 'yaml';repos = YAML.load_file('Podfile.lock')['SPEC REPOS'];puts (repos.nil? || repos.include?('https://github.com/cocoapods/specs.git'))")
+                        USES_MASTER_SPECS=$(ruby -e "require 'yaml';repos = YAML.load_file('Podfile.lock')['SPEC REPOS'];puts (repos.nil? || repos.keys.map(&:downcase).include?('https://github.com/cocoapods/specs.git'))")
 
                         if [ "$SKIP_POD_INSTALL" = true ]; then
                           echo "Pod install is skipped, not downloading specs."
