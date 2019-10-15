@@ -377,7 +377,7 @@ commands:
   with-cocoapods-specs-cache:
     parameters:
       cached-steps:
-        description: Steps that will be specs cache is restored, but before it is saved.
+        description: Steps that will be run after the specs cache is restored, but before it is saved.
         type: steps
         default: []
       cache-prefix:
