@@ -160,9 +160,11 @@ jobs:
             - run:
                 name: Update CocoaPods Specs
                 command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo update
-      - run:
-          name: Validate podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose << parameters.additional-parameters >> "<< parameters.podspec-path >>"
+      - with-cocoapods-specs-cache:
+          cached-steps:
+            - run:
+                name: Validate podspec
+                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose << parameters.additional-parameters >> "<< parameters.podspec-path >>"
   publish-podspec:
     description: |
       Publishes the provided .podspec file to trunk using 'pod trunk push'.
@@ -199,9 +201,11 @@ jobs:
             if [ ! -z "$CIRCLE_TAG" ] && [ "$CIRCLE_TAG" != "$POD_VERSION" ]; then
               echo "Tag $CIRCLE_TAG does not match version $POD_VERSION from << parameters.podspec-path >>."; exit 1
             fi
-      - run:
-          name: Publish podspec
-          command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
+      - with-cocoapods-specs-cache:
+          cached-steps:
+            - run:
+                name: Publish podspec
+                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
       - when:
           condition: << parameters.post-to-slack >>
           steps:
@@ -373,6 +377,40 @@ commands:
           command: test-without-building
           arguments: $XCODEBUILD_ARGS -destination "platform=iOS Simulator,id=$SIMULATOR_UDID"
       - save-xcodebuild-artifacts
+  with-cocoapods-specs-cache:
+    parameters:
+      cached-steps:
+        description: Steps that will be run after the specs cache is restored, but before it is saved.
+        type: steps
+        default: []
+      cache-prefix:
+        description: A prefix to use for the CocoaPods specs cache key.
+        type: string
+        default: cocoapods-specs
+    steps:
+      - run:
+          name: Generate CocoaPods Specs cache
+          command: |
+            if [ "$SKIP_POD_INSTALL" = true ]; then
+              # If we are skipping pod install, use a random cache key so we don't waste time downloading the cache
+              uuidgen > specs-cache-key.txt
+            else
+              echo "pod-spec-cache" > specs-cache-key.txt
+            fi
+      - restore_cache:
+          name: Restore CocoaPods Specs cache
+          keys:
+            - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
+            - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}
+            - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}
+      - steps: << parameters.cached-steps >>
+      - save_cache:
+                name: Save CocoaPods Specs cache
+                key: << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
+                paths:
+                  - ~/Library/Caches/CocoaPods
+                  - ~/.cocoapods/repos/trunk
+
   install-dependencies:
     description: |
       Installs dependencies in the current workspace and caches the results.
@@ -425,71 +463,54 @@ commands:
                   else
                     echo "Podfile.lock does not match Pods/Manifest.lock. Pods will be installed ..."
                   fi
-            - run:
-                name: Generate CocoaPods Specs cache
-                command: |
-                  if [ "$SKIP_POD_INSTALL" = true ]; then
-                    # If we are skipping pod install, use a random cache key so we don't waste time downloading the cache
-                    uuidgen > specs-cache-key.txt
-                  else
-                    echo "pod-spec-cache" > specs-cache-key.txt
-                  fi
-            - restore_cache:
-                name: Restore CocoaPods Specs cache
-                keys:
-                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
-                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}
-                  - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}
-            - run:
-                name: Fetch CocoaPods Specs (if needed)
-                command: |
-                  cd "<< parameters.cocoapods-working-directory >>"
+            - with-cocoapods-specs-cache:
+                cache-prefix: << parameters.cache-prefix >>
+                cached-steps:
+                  - run:
+                      name: Fetch CocoaPods Specs (if needed)
+                      command: |
+                        cd "<< parameters.cocoapods-working-directory >>"
 
-                  USES_MASTER_SPECS=$(ruby -e "require 'yaml';repos = YAML.load_file('Podfile.lock')['SPEC REPOS'];puts (repos.nil? || repos.keys.map(&:downcase).include?('https://github.com/cocoapods/specs.git'))")
+                        USES_MASTER_SPECS=$(ruby -e "require 'yaml';repos = YAML.load_file('Podfile.lock')['SPEC REPOS'];puts (repos.nil? || repos.keys.map(&:downcase).include?('https://github.com/cocoapods/specs.git'))")
 
-                  if [ "$SKIP_POD_INSTALL" = true ]; then
-                    echo "Pod install is skipped, not downloading specs."
-                  elif [ "$USES_MASTER_SPECS" = false ]; then
-                    echo "Podfile.lock does not use the master specs repo, skipping download."
-                  else
-                    curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
-                  fi
-            - run:
-                name: Pod Install (if needed)
-                command: |
-                  cd "<< parameters.cocoapods-working-directory >>"
+                        if [ "$SKIP_POD_INSTALL" = true ]; then
+                          echo "Pod install is skipped, not downloading specs."
+                        elif [ "$USES_MASTER_SPECS" = false ]; then
+                          echo "Podfile.lock does not use the master specs repo, skipping download."
+                        else
+                          curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
+                        fi
+                  - run:
+                      name: Pod Install (if needed)
+                      command: |
+                        cd "<< parameters.cocoapods-working-directory >>"
 
-                  if [ "$SKIP_POD_INSTALL" = true ]; then
-                    echo "Skipping pod install ..."
-                  else
-                    # Get the shasum of Podfile.lock before installing pods
-                    LOCKFILE_SHASUM=$(shasum Podfile.lock)
+                        if [ "$SKIP_POD_INSTALL" = true ]; then
+                          echo "Skipping pod install ..."
+                        else
+                          # Get the shasum of Podfile.lock before installing pods
+                          LOCKFILE_SHASUM=$(shasum Podfile.lock)
 
-                    # Install pods
-                    <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
+                          # Install pods
+                          <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
 
-                    # Check that Podfile.lock was unchanged by pod install
-                    function lockfile_error () {
-                      echo "Podfile.lock was changed by 'pod install'. Please run 'pod install' and try again."
-                    }
-                    trap lockfile_error ERR
+                          # Check that Podfile.lock was unchanged by pod install
+                          function lockfile_error () {
+                            echo "Podfile.lock was changed by 'pod install'. Please run 'pod install' and try again."
+                          }
+                          trap lockfile_error ERR
 
-                    echo
-                    echo "Checking that Podfile.lock was not modified by 'pod install'"
-                    echo "${LOCKFILE_SHASUM}" | shasum -c > /dev/null
-                  fi
-                environment:
-                  COCOAPODS_DISABLE_STATS: true
-            - save_cache:
-                name: Save CocoaPods cache
-                key: << parameters.cache-prefix >>-pods-{{ arch }}-{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}
-                paths:
-                  - << parameters.cocoapods-working-directory >>/Pods/
-            - save_cache:
-                name: Save CocoaPods Specs cache
-                key: << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
-                paths:
-                  - ~/Library/Caches/CocoaPods
+                          echo
+                          echo "Checking that Podfile.lock was not modified by 'pod install'"
+                          echo "${LOCKFILE_SHASUM}" | shasum -c > /dev/null
+                        fi
+                      environment:
+                        COCOAPODS_DISABLE_STATS: true
+                  - save_cache:
+                      name: Save CocoaPods cache
+                      key: << parameters.cache-prefix >>-pods-{{ arch }}-{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}
+                      paths:
+                        - << parameters.cocoapods-working-directory >>/Pods/
       - when:
           condition: << parameters.carthage-update >>
           steps:
