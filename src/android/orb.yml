@@ -99,6 +99,9 @@ commands:
       timeout:
         type: string
         default: 15m
+      num-flaky-test-attempts:
+        type: integer
+        default: 0
       results-history-name:
         type: string
         default: ""
@@ -140,6 +143,7 @@ commands:
             COMMAND="${COMMAND} <<# parameters.no-record-video >>--no-record-video<</ parameters.no-record-video >>"
             COMMAND="${COMMAND} $(optional_argument --results-history-name "<<parameters.results-history-name>>")"
             COMMAND="${COMMAND} $(optional_argument --test-targets "<<parameters.test-targets>>")"
+            COMMAND="${COMMAND} $(optional_argument --num-flaky-test-attempts "<<parameters.num-flaky-test-attempts>>")"
 
             echo "${COMMAND}"
             echo
