@@ -492,7 +492,19 @@ commands:
                           LOCKFILE_SHASUM=$(shasum Podfile.lock)
 
                           # Install pods
-                          <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
+                          function podinstall_error () {
+                            # Untrap to avoid loops
+                            trap - ERR
+                            
+                            # Clean the repo trunk
+                            <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo remove trunk
+
+                            # Retry install
+                            <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
+                          }
+                          
+                          trap podinstall_error ERR
+                          <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install  
 
                           # Check that Podfile.lock was unchanged by pod install
                           function lockfile_error () {
