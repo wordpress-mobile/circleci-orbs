@@ -267,7 +267,8 @@ commands:
             IOS_VERSION="<< parameters.ios-version >>"
             if [ -z "$IOS_VERSION" ]; then
               # If ios-version wasn't provided, default to the latest
-              IOS_VERSION=$(xcrun simctl list -j | jq -r '[.runtimes[] | select(.name|test("iOS."))] | sort_by(.version) | .[-1] | .version')
+              IOS_VERSION=$(ruby -e 'require "json";puts JSON.parse(`xcrun simctl list -j`)["runtimes"].select { |device| device["name"].include?("iOS") }.map { |device| device["version"] }.sort.last')
+              echo "Defaulting to latest iOS: $IOS_VERSION"
             fi
 
             # Get the UDID of the "<< parameters.device >>" with the correct iOS version
