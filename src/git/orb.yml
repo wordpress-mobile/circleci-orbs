@@ -35,6 +35,9 @@ commands:
             git config --global url."ssh://git@github.com".insteadOf "https://github.com" || true
             git config --global gc.auto 0 || true
 
+            # Don't download LFS stuff
+            export GIT_LFS_SKIP_SMUDGE=1
+
             if [ -e .git ]
             then
               git remote set-url origin "$CIRCLE_REPOSITORY_URL" || true
