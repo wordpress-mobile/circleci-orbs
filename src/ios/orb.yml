@@ -277,10 +277,10 @@ commands:
             # Xcode 10.2 changes the format of `xcrun simctl list -j`
             # The 'devices' object now uses the runtime identifiers as its keys instead of the iOS version
             if [ $(ruby -e "puts '<< parameters.xcode-version >>' >= '10.2.0'") == "true" ]; then
-              DEVICES_KEY=$(xcrun simctl list -j | jq -r --arg DEVICES_KEY "$DEVICES_KEY" '[.runtimes[] | select (.name==$DEVICES_KEY)][0] | .identifier')
+              DEVICES_KEY=$(xcrun simctl list -j | jq -r --arg DEVICES_KEY "$IOS_VERSION" '[.runtimes[] | select (.version==$DEVICES_KEY)][0] | .identifier')
             fi
 
-            UDID=$(xcrun simctl list -j | jq -r --arg DEVICES_KEY "$DEVICES_KEY" '[.devices[$DEVICES_KEY][] | select(.name | test("<< parameters.device >>"; "i")) | select (.isAvailable == true or .availability == "available")][0] | .udid')
+            UDID=$(ruby -e 'DEVICE_KEY=ARGV[0];DEVICE_NAME=ARGV[1].gsub("\\", "");require "json";puts JSON.parse(`xcrun simctl list -j`)["devices"][DEVICE_KEY].select { |device| device["name"] == DEVICE_NAME && (device["isAvailable"] == true || device["availability"] == "available") }.first["udid"]' $DEVICES_KEY "<< parameters.device >>")
 
             xcrun simctl boot $UDID # Boot simulator in the background
             echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
