@@ -395,7 +395,9 @@ commands:
             if [ "$SKIP_POD_INSTALL" = true ]; then
               # If we are skipping pod install, use a random cache key so we don't waste time downloading the cache
               uuidgen > specs-cache-key.txt
+              echo "Skipping pod install with a random cache key"
             else
+              echo "Using pod spec cache"
               echo "pod-spec-cache" > specs-cache-key.txt
             fi
       - restore_cache:
