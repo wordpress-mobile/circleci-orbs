@@ -405,7 +405,6 @@ commands:
           keys:
             - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}-{{ .Revision }}
             - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}-{{ .Branch }}
-            - << parameters.cache-prefix >>-{{ checksum "specs-cache-key.txt" }}
       - steps: << parameters.cached-steps >>
       - save_cache:
                 name: Save CocoaPods Specs cache
