@@ -165,6 +165,7 @@ jobs:
             - run:
                 name: Validate podspec
                 command: | 
+                  set +e
                   <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose << parameters.additional-parameters >> "<< parameters.podspec-path >>"
                   result=$?  
                   set -e
