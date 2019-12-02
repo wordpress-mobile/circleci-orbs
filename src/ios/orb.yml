@@ -164,7 +164,17 @@ jobs:
           cached-steps:
             - run:
                 name: Validate podspec
-                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose << parameters.additional-parameters >> "<< parameters.podspec-path >>"
+                command: | 
+                  <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose << parameters.additional-parameters >> "<< parameters.podspec-path >>"
+                  result=$?  
+                  set -e
+                  if [ $result -ne 0 ]; then
+                    # Clean the repo trunk
+                    <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo remove trunk
+
+                    # Retry with a clean repo
+                    <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose << parameters.additional-parameters >> "<< parameters.podspec-path >>"
+                  fi
   publish-podspec:
     description: |
       Publishes the provided .podspec file to trunk using 'pod trunk push'.
