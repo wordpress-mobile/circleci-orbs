@@ -26,7 +26,7 @@ commands:
           command: |
             # This finds all *.gradle files (apart from the root build.gradle) and generates checksums for caching
             { find . -regextype posix-extended -regex '.*gradle(.kts)?' -type f & \
-              find buildSrc -type f -not -path "*/build/*" -not -path "*/.gradle/*" } | \
+              find buildSrc -type f -not -path "*/build/*" -not -path "*/.gradle/*"; } | \
               sort | \
               xargs shasum > gradle-checksums.txt
             cat gradle-checksums.txt
