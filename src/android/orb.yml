@@ -25,7 +25,10 @@ commands:
           name: Generate Gradle checksums
           command: |
             # This finds all *.gradle files (apart from the root build.gradle) and generates checksums for caching
-            find . -mindepth 2 -name "*.gradle" -type f | sort | xargs shasum > gradle-checksums.txt
+            { find . -regextype posix-extended -regex '.*gradle(.kts)?' -type f & \
+              find buildSrc -type f -not -path "*/build/*" -not -path "*/.gradle/*" } | \
+              sort | \
+              xargs shasum > gradle-checksums.txt
             cat gradle-checksums.txt
             # Output the current date in order to prevent a very stale cache
             date +"%Y/%m/%d" > date.txt
