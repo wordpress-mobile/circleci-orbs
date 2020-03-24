@@ -41,7 +41,7 @@ commands:
             if [ -e .git ]
             then
               git remote set-url origin "$CIRCLE_REPOSITORY_URL" || true
-            elif [[ "$CIRCLE_BRANCH" =~ pull/[0-9]+$ ]]
+            elif [[ "$CIRCLE_BRANCH" =~ pull/[0-9]+$ ]] || [ -z "$CIRCLE_BRANCH" ]
             then
               # We can't clone a single branch for forks
               git clone "$CIRCLE_REPOSITORY_URL" --depth 1 .
@@ -52,6 +52,7 @@ commands:
             if [ -n "$CIRCLE_TAG" ]
             then
               git fetch --force origin "refs/tags/${CIRCLE_TAG}" --depth 1
+              git fetch --depth 1 origin tag ${CIRCLE_TAG}
             elif [[ "$CIRCLE_BRANCH" =~ pull/[0-9]+$ ]]
             then
               # Different fetch logic is needed for forks
