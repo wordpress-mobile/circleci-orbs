@@ -160,3 +160,14 @@ commands:
           path: ~/results
       - store_artifacts:
           path: ~/results
+  test-library:
+    description: Run unit tests
+    parameters:
+      project-path:
+        description: Gradle root for the project
+        type: string
+    steps:
+      - run:
+          name: Test
+          command: cd "<<parameters.project-path>>" && ./gradlew --stacktrace testReleaseUnitTest
+
