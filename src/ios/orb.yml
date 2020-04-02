@@ -339,6 +339,10 @@ commands:
           name: Save crash logs
           path: ~/Library/Logs/DiagnosticReports/
           destination: crashes
+      - store_artifacts:
+          name: Save test bundles and other output
+          path: build/results
+          destination: testresults
   test:
     description: |
       Build and test an iOS project using xcodebuild
