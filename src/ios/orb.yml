@@ -339,9 +339,13 @@ commands:
           name: Save crash logs
           path: ~/Library/Logs/DiagnosticReports/
           destination: crashes
+      - run:
+          name: Zip test output
+          working_directory: build/results
+          command: zip -r testoutput.zip *
       - store_artifacts:
-          name: Save test bundles and other output
-          path: build/results
+          name: Save test output
+          path: build/results/testoutput.zip
           destination: testresults
   test:
     description: |
