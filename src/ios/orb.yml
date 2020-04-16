@@ -339,14 +339,6 @@ commands:
           name: Save crash logs
           path: ~/Library/Logs/DiagnosticReports/
           destination: crashes
-      - run:
-          name: Zip test output
-          working_directory: build/results
-          command: zip -r testoutput.zip *
-      - store_artifacts:
-          name: Save test output
-          path: build/results/testoutput.zip
-          destination: testresults
   test:
     description: |
       Build and test an iOS project using xcodebuild
