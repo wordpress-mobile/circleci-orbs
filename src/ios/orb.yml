@@ -347,7 +347,7 @@ commands:
       - run:
           name: Zip any test output
           working_directory: << parameters.result-bundle-path >>
-          command: zip -r testoutput.zip * || touch testoutput.zip
+          command: zip -r testoutput.zip * || true
       - store_artifacts:
           name: Save test output
           path: << parameters.result-bundle-path >>/testoutput.zip
