@@ -6,6 +6,11 @@ description: |
 commands:
   shallow-checkout:
     description: Performs a shallow clone of the repository
+    parameters:
+      init-submodules:
+        description: Inits and updates submodules
+        default: false
+        type: boolean
     steps:
       - run:
           name: Shallow checkout
@@ -73,6 +78,11 @@ commands:
             fi
 
             git reset --hard "$CIRCLE_SHA1"
+
+            <<# parameters.init-submodules >>
+            git submodule init
+            git submodule update
+            <</ parameters.init-submodules >>
 
   checkout-as-zip:
     description: Download the repository as a zip using the Github API
