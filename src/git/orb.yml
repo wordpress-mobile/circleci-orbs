@@ -77,7 +77,11 @@ commands:
               git checkout -q -B "$CIRCLE_BRANCH"
             fi
 
-            git reset --hard "$CIRCLE_SHA1"
+            if git cat-file -e "$CIRCLE_SHA1"; then
+              git reset --hard "$CIRCLE_SHA1"
+            else
+              circleci-agent step halt
+            fi
 
             <<# parameters.init-submodules >>
             git submodule init
