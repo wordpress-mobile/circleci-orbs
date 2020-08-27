@@ -95,7 +95,8 @@ commands:
       device:
         description: |
           Single device specifier (e.g. `model=blueline,version=28,orientation=portrait,locale=en_US`), to run the tests on a single device.
-          Ignored when you provide a value for `devices`. Obsolete, prefer using `devices` for 
+          Ignored when you provide a value for `devices`. Obsolete, prefer using `devices` instead.
+ 
           Can be combined with `locales` to build a matrix of device specifiers for a single device but multiple locales.
         default: ""
         type: string
@@ -104,14 +105,15 @@ commands:
           Space-or-newline-separated list of device specifiers, to run the tests on a multiple devices. Takes precedence over the `device` parameter.
           e.g. `model=blueline,version=28,orientation=portrait,locale=en_US model=blueline,version=29,orientation=landscape,locale=ar`.
 
-          When a `locales` parameter is also provided, this specifiers in this list are supposed to *not* contain the locale dimension, and the command
-          will build a matrix of the `devices` list and the `locales` list to generate tests on all possible combination of both dimensions.
+          When a `locales` parameter is also provided, the specifiers in this list are supposed to *not* contain the locale dimension, and the command
+          will build a matrix of the `devices` list and the `locales` list to generate tests on all possible combinations of both lists.
         default: ""
         type: string
       locales:
         description: |
           Space-or-newline-separated list of locale codes to combine with the list of `devices`. e.g. `ar en_US fr_FR`.
-          When provided, the command will build a matrix of the `devices` list and the `locales` list to generate tests on all possible combination
+
+          When provided, the command will build a matrix of the `devices` list and the `locales` list to generate tests on all possible combinations
           of both dimensions, by appending the `,locale=…` dimension to each device specifier provided in the `devices` list for each locale.
         type: string
         default: ""
