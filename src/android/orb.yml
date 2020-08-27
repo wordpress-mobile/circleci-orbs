@@ -144,7 +144,7 @@ commands:
           command: gcloud auth activate-service-account --key-file "<<parameters.key-file>>"
       - run:
           name: Run tests on Firebase Test Lab
-          no_output_timeout: 3h # Set to a large value as firebase manages its own timeout.
+          no_output_timeout: 1h # Set to a large value as firebase manages its own timeout.
           command: |
             optional_argument () {
               OPTION="$1"
