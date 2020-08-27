@@ -93,7 +93,28 @@ commands:
       test-apk-path:
         type: string
       device:
+        description: |
+          Single device specifier (e.g. `model=blueline,version=28,orientation=portrait,locale=en_US`), to run the tests on a single device.
+          Ignored when you provide a value for `devices`. Obsolete, prefer using `devices` for 
+          Can be combined with `locales` to build a matrix of device specifiers for a single device but multiple locales.
+        default: ""
         type: string
+      devices:
+        description: |
+          Space-or-newline-separated list of device specifiers, to run the tests on a multiple devices. Takes precedence over the `device` parameter.
+          e.g. `model=blueline,version=28,orientation=portrait,locale=en_US model=blueline,version=29,orientation=landscape,locale=ar`.
+
+          When a `locales` parameter is also provided, this specifiers in this list are supposed to *not* contain the locale dimension, and the command
+          will build a matrix of the `devices` list and the `locales` list to generate tests on all possible combination of both dimensions.
+        default: ""
+        type: string
+      locales:
+        description: |
+          Space-or-newline-separated list of locale codes to combine with the list of `devices`. e.g. `ar en_US fr_FR`.
+          When provided, the command will build a matrix of the `devices` list and the `locales` list to generate tests on all possible combination
+          of both dimensions, by appending the `,locale=…` dimension to each device specifier provided in the `devices` list for each locale.
+        type: string
+        default: ""
       project:
         type: string
       timeout:
@@ -131,12 +152,33 @@ commands:
               fi
             }
 
+            device_arguments() {
+              DEVICE="<<parameters.device>>"
+              DEVICES="<<parameters.devices>>"
+              LOCALES="<<parameters.locales>>"
+
+              if [ -z "$DEVICES" ]; then
+                DEVICES=$DEVICE
+              fi
+              if [ -z "$LOCALES" ]; then
+                for device in $DEVICES; do
+                  echo -n "--device \"$device\" "
+                done
+              else
+                for device in $DEVICES; do
+                  for locale in $LOCALES; do
+                    echo -n "--device \"$device,locale=$locale\" "
+                  done
+                done
+              fi
+            }
+
             COMMAND="gcloud firebase test android run"
             COMMAND="${COMMAND} --type \"<<parameters.type>>\""
             COMMAND="${COMMAND} --app \"<<parameters.apk-path>>\""
             COMMAND="${COMMAND} --test \"<<parameters.test-apk-path>>\""
             COMMAND="${COMMAND} --timeout \"<<parameters.timeout>>\""
-            COMMAND="${COMMAND} --device \"<<parameters.device>>\""
+            COMMAND="${COMMAND} $(device_arguments)"
             COMMAND="${COMMAND} --project \"<<parameters.project>>\""
             COMMAND="${COMMAND} --verbosity info"
             COMMAND="${COMMAND} <<parameters.additional-parameters>>"
