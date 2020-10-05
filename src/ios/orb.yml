@@ -389,7 +389,7 @@ commands:
             XCODEBUILD_ARGS="${XCODEBUILD_ARGS} $(optional_argument "-target" "<< parameters.target >>")"
             XCODEBUILD_ARGS="${XCODEBUILD_ARGS} -configuration '<< parameters.configuration >>'"
             XCODEBUILD_ARGS="${XCODEBUILD_ARGS} -sdk iphonesimulator"
-            XCODEBUILD_ARGS="${XCODEBUILD_ARGS} -destination 'platform=iOS Simulator,name=<< parameters.device >>,OS=<< parameters.ios-version >>'"
+            XCODEBUILD_ARGS="${XCODEBUILD_ARGS} -destination \"platform=iOS Simulator,name=<< parameters.device >>,OS=<< parameters.ios-version >>\""
 
             echo "export XCODEBUILD_ARGS='${XCODEBUILD_ARGS}'" >> $BASH_ENV
 
