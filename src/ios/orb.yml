@@ -164,10 +164,10 @@ jobs:
           cached-steps:
             - run:
                 name: Validate podspec
-                command: | 
+                command: |
                   set +e
                   <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod lib lint --sources="<< parameters.sources >>" --verbose << parameters.additional-parameters >> "<< parameters.podspec-path >>"
-                  result=$?  
+                  result=$?
                   set -e
                   if [ $result -ne 0 ]; then
                     # Clean the repo trunk
@@ -520,7 +520,7 @@ commands:
                           # Install pods
                           set +e
                           <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
-                          result=$?  
+                          result=$?
                           set -e
                           if [ $result -ne 0 ]; then
                             # Clean the repo trunk
