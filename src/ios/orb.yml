@@ -265,17 +265,18 @@ commands:
                   echo "Doesn't use master specs repo. Skipping download ..."
               fi
             fi
-  boot-simulator:
+  select-simulator:
     description: |
-      Boot an iOS simulator in the background.
+      Select the iOS simulator that matches the given parameters and export as environment variables its name, ios version, and UDID.
     parameters:
       <<: *xcode_version_parameter
       <<: *device_parameters
     steps:
       - run:
-          name: Boot simulator
+          name: Select simulator
           command: |
             IOS_VERSION="<< parameters.ios-version >>"
+            DEVICE_NAME="<< parameters.device >>"
             if [ -z "$IOS_VERSION" ]; then
               # If ios-version wasn't provided, default to the latest
               IOS_VERSION=$(ruby -e 'require "json";puts JSON.parse(`xcrun simctl list -j`)["runtimes"].select { |device| device["name"].include?("iOS") }.map { |device| device["version"] }.sort.last')
@@ -291,10 +292,25 @@ commands:
               DEVICES_KEY=$(xcrun simctl list -j | jq -r --arg DEVICES_KEY "$IOS_VERSION" '[.runtimes[] | select (.version==$DEVICES_KEY)][0] | .identifier')
             fi
 
-            UDID=$(ruby -e 'DEVICE_KEY=ARGV[0];DEVICE_NAME=ARGV[1].gsub("\\", "");require "json";puts JSON.parse(`xcrun simctl list -j`)["devices"][DEVICE_KEY].select { |device| device["name"] == DEVICE_NAME && (device["isAvailable"] == true || device["availability"] == "available") }.first["udid"]' $DEVICES_KEY "<< parameters.device >>")
+            DEVICE_NAME=$(ruby -e 'NAME=ARGV[0].gsub("\\", "");puts NAME' "$DEVICE_NAME")
+            UDID=$(ruby -e 'DEVICE_KEY=ARGV[0];DEVICE_NAME=ARGV[1];require "json";puts JSON.parse(`xcrun simctl list -j`)["devices"][DEVICE_KEY].select { |device| device["name"] == DEVICE_NAME && (device["isAvailable"] == true || device["availability"] == "available") }.first["udid"]' "$DEVICES_KEY" "$DEVICE_NAME")
 
-            xcrun simctl boot $UDID # Boot simulator in the background
-            echo "export SIMULATOR_UDID=$UDID" >> $BASH_ENV
+            echo "Selected simulator: $DEVICE_NAME, $IOS_VERSION, $UDID"
+            echo "export SIMULATOR_NAME='$DEVICE_NAME' SIMULATOR_IOS_VERSION='$IOS_VERSION' SIMULATOR_UDID='$UDID'" >> $BASH_ENV
+  boot-simulator:
+    description: |
+      Boot an iOS simulator in the background.
+    parameters:
+      <<: *xcode_version_parameter
+      <<: *device_parameters
+    steps:
+      - select-simulator:
+          xcode-version: << parameters.xcode-version >>
+          ios-version: << parameters.ios-version >>
+          device: << parameters.device >>
+      - run:
+          name: Boot simulator
+          command: xcrun simctl boot $SIMULATOR_UDID
           background: true
   wait-for-simulator:
     description: |
