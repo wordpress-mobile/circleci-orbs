@@ -489,64 +489,47 @@ commands:
                   else
                     echo "Podfile.lock does not match Pods/Manifest.lock. Pods will be installed ..."
                   fi
-            - with-cocoapods-specs-cache:
-                cache-prefix: << parameters.cache-prefix >>
-                cached-steps:
-                  - run:
-                      name: Fetch CocoaPods Specs (if needed)
-                      command: |
-                        cd "<< parameters.cocoapods-working-directory >>"
+            - run:
+                name: Pod Install (if needed)
+                command: |
+                  cd "<< parameters.cocoapods-working-directory >>"
 
-                        USES_MASTER_SPECS=$(ruby -e "require 'yaml';repos = YAML.load_file('Podfile.lock')['SPEC REPOS'];puts (repos.nil? || repos.keys.map(&:downcase).include?('https://github.com/cocoapods/specs.git'))")
+                  if [ "$SKIP_POD_INSTALL" = true ]; then
+                    echo "Skipping pod install ..."
+                  else
+                    # Get the shasum of Podfile.lock before installing pods
+                    LOCKFILE_SHASUM=$(shasum Podfile.lock)
 
-                        if [ "$SKIP_POD_INSTALL" = true ]; then
-                          echo "Pod install is skipped, not downloading specs."
-                        elif [ "$USES_MASTER_SPECS" = false ]; then
-                          echo "Podfile.lock does not use the master specs repo, skipping download."
-                        else
-                          curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
-                        fi
-                  - run:
-                      name: Pod Install (if needed)
-                      command: |
-                        cd "<< parameters.cocoapods-working-directory >>"
+                    # Install pods
+                    set +e
+                    <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
+                    result=$?  
+                    set -e
+                    if [ $result -ne 0 ]; then
+                      # Clean the repo trunk
+                      <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo remove trunk
 
-                        if [ "$SKIP_POD_INSTALL" = true ]; then
-                          echo "Skipping pod install ..."
-                        else
-                          # Get the shasum of Podfile.lock before installing pods
-                          LOCKFILE_SHASUM=$(shasum Podfile.lock)
+                      # Retry install
+                      <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
+                    fi
 
-                          # Install pods
-                          set +e
-                          <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
-                          result=$?  
-                          set -e
-                          if [ $result -ne 0 ]; then
-                            # Clean the repo trunk
-                            <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo remove trunk
+                    # Check that Podfile.lock was unchanged by pod install
+                    function lockfile_error () {
+                      echo "Podfile.lock was changed by 'pod install'. Please run 'pod install' and try again."
+                    }
+                    trap lockfile_error ERR
 
-                            # Retry install
-                            <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod install
-                          fi
-
-                          # Check that Podfile.lock was unchanged by pod install
-                          function lockfile_error () {
-                            echo "Podfile.lock was changed by 'pod install'. Please run 'pod install' and try again."
-                          }
-                          trap lockfile_error ERR
-
-                          echo
-                          echo "Checking that Podfile.lock was not modified by 'pod install'"
-                          echo "${LOCKFILE_SHASUM}" | shasum -c > /dev/null
-                        fi
-                      environment:
-                        COCOAPODS_DISABLE_STATS: true
-                  - save_cache:
-                      name: Save CocoaPods cache
-                      key: << parameters.cache-prefix >>-pods-{{ arch }}-{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}
-                      paths:
-                        - << parameters.cocoapods-working-directory >>/Pods/
+                    echo
+                    echo "Checking that Podfile.lock was not modified by 'pod install'"
+                    echo "${LOCKFILE_SHASUM}" | shasum -c > /dev/null
+                  fi
+                environment:
+                  COCOAPODS_DISABLE_STATS: true
+            - save_cache:
+                name: Save CocoaPods cache
+                key: << parameters.cache-prefix >>-pods-{{ arch }}-{{ checksum "<< parameters.cocoapods-working-directory >>/Podfile.lock" }}
+                paths:
+                  - << parameters.cocoapods-working-directory >>/Pods/
       - when:
           condition: << parameters.carthage-update >>
           steps:
