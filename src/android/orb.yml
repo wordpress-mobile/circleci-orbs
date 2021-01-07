@@ -207,6 +207,11 @@ commands:
 
   publish-to-bintray:
     description: Builds a release AAR and POM and publishes it to Bintray using the given version value.
+    parameters:
+      assemble_task:
+        description: The name of the task to assemble the AAR. E.g. assembleRelease
+        type: string
+        default: "assembleRelease"
     steps:
       - run:
           name: Build and Upload to Bintray
@@ -240,7 +245,8 @@ commands:
             # See
             # https://github.com/wordpress-mobile/circleci-orbs/blob/82f9821130890756e85277486ca0dde6cae25431/src/android/orb.yml#L19),
             #
-            # - `assembleRelease` builds the AAR
+            # - The specified assemble task (`assembleRelese` by default)
+            #   builds the AAR
             # - `generatePomFileForUtilsPublicationPublication` builds the POM
             # - `bintrayUpload` uploads both, using the version value set via
             #   `-PbintrayVersion`
@@ -261,7 +267,7 @@ commands:
             #
             # See:
             # https://app.circleci.com/pipelines/github/wordpress-mobile/WordPress-Utils-Android/165/workflows/b0cb954f-315d-4c54-99a7-c36d11eec5c8/jobs/342
-            ./gradlew --stacktrace assembleRelease
+            ./gradlew --stacktrace <<parameters.assemble_task>>
 
             ./gradlew --stacktrace \
               generatePomFileForUtilsPublicationPublication \
