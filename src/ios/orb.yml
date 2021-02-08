@@ -250,7 +250,7 @@ commands:
             # If no explicit source given, determine the default for this version of CocoaPods
             if [ -z "<< parameters.sources >>" ]; then
               COCOAPODS_VERSION=$(<<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod --version)
-              if [ $(ruby -e "puts '$COCOAPODS_VERSION' >= '1.8.0'") == "true" ]; then
+              if ruby -e "exit Gem::Version.new('$COCOAPODS_VERSION') >= Gem::Version.new('1.8.0')"; then
                 echo "No source provided and CocoaPods version is >= 1.8.0, not downloading master specs repo ..."
               else
                 curl https://cocoapods-specs.circleci.com/fetch-cocoapods-repo-from-s3.sh | bash -s cf
