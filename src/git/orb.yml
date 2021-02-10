@@ -69,11 +69,17 @@ commands:
 
             if [ -n "$CIRCLE_TAG" ]
             then
+              # The SHA1 for a given tag shouldn't change, so we *should* fail if this command doesn't work
               git reset --hard "$CIRCLE_SHA1"
               git checkout -q "$CIRCLE_TAG"
             elif [ -n "$CIRCLE_BRANCH" ]
             then
-              git reset --hard "$CIRCLE_SHA1"
+              # Don't fail the job if the hash isn't the latest
+              if git cat-file -e "$CIRCLE_SHA1"; then
+                git reset --hard "$CIRCLE_SHA1"
+              else
+                circleci-agent step halt
+              fi
               git checkout -q -B "$CIRCLE_BRANCH"
             fi
 
