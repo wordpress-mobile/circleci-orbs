@@ -178,9 +178,15 @@ jobs:
                   fi
   publish-podspec:
     description: |
-      Publishes the provided .podspec file to trunk using 'pod trunk push'.
+      Publishes the provided .podspec file to trunk using 'pod trunk push', or to an internal spec repo using 'pod repo push'.
 
-      Note: A COCOAPODS_TRUNK_TOKEN environment variable should be set for your project.
+      Notes:
+       - In order for `pod trunk push` to work, you will need to:
+         - Add a `COCOAPODS_TRUNK_TOKEN` environment variable to your project, with the password from your `~/.netrc` file after running `pod trunk register`.
+       - In order for `pod repo push` to work, you will need to:
+         - Create a Deploy Key in GitHub for your cocoapods spec repository
+         - Add that private Deploy Key in the "Additional SSH key" section of your CircleCI project settings.
+         - Add the `SPEC_REPO_PUBLIC_DEPLOY_KEY` environment variable to your project, with the public deploy key as its value.
     parameters:
       <<: *xcode_version_parameter
       <<: *podspec_parameters
@@ -188,6 +194,10 @@ jobs:
         description: Post to Slack with the sucessful publish. PODS_SLACK_WEBHOOK ENV variable must be set.
         type: boolean
         default: false
+      spec-repo:
+        description: URL of the internal/private CocoaPods Spec repository to push the podspec to. Leave empty to push to CocoaPods trunk.
+        type: string
+        default: ""
     executor:
       name: default
       xcode-version: << parameters.xcode-version >>
@@ -212,11 +222,26 @@ jobs:
             if [ ! -z "$CIRCLE_TAG" ] && [ "$CIRCLE_TAG" != "$POD_VERSION" ]; then
               echo "Tag $CIRCLE_TAG does not match version $POD_VERSION from << parameters.podspec-path >>."; exit 1
             fi
+      - add_ssh_keys # Especially needed to add the Deploy Key used to push to the internal spec repo (pod repo push).
       - with-cocoapods-specs-cache:
           cached-steps:
             - run:
                 name: Publish podspec
-                command: <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
+                command: |
+                  if [[ -z "<< parameters.spec-repo >>" ]]; then
+                    <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod trunk push --verbose "<< parameters.podspec-path >>"
+                  else
+                    mkdir -p ~/.ssh
+
+                    (cat \<<EOF > ~/.ssh/pod_repo_push_deploy_key.pub
+                    $SPEC_REPO_PUBLIC_DEPLOY_KEY
+                  EOF
+                    )
+
+                    export GIT_SSH_COMMAND='ssh -i ~/.ssh/pod_repo_push_deploy_key.pub -o IdentitiesOnly=yes -o UserKnownHostsFile=~/.ssh/known_hosts'
+
+                    <<# parameters.bundle-install >>bundle exec<</ parameters.bundle-install >> pod repo push "<< parameters.spec-repo >>" --verbose "<< parameters.podspec-path >>"
+                  fi
       - when:
           condition: << parameters.post-to-slack >>
           steps:
