@@ -32,6 +32,10 @@ dependency_parameters: &dependency_parameters
     description: The directory containing your project's Cartfile.
     type: string
     default: .
+  install-bundler:
+    description: Should `gem install bundler` be run? If true, the CI machine will install the latest version of Bundler
+    type: boolean
+    default: false
 
 xcode_version_parameter: &xcode_version_parameter
   xcode-version:
@@ -40,6 +44,10 @@ xcode_version_parameter: &xcode_version_parameter
     default: "10.1.0"
 
 podspec_parameters: &podspec_parameters
+  install-bundler:
+    description: Should `gem install bundler` be run? If true, the CI machine will install the latest version of Bundler
+    type: boolean
+    default: false
   podspec-path:
     description: Path to the .podspec file.
     type: string
@@ -121,6 +129,7 @@ jobs:
           ios-version: << parameters.ios-version >>
           device: << parameters.device >>
           cache-prefix: << parameters.cache-prefix >>
+          install-bundler: << parameters.install-bundler >>
           bundle-install: << parameters.bundle-install >>
           bundler-working-directory: << parameters.bundler-working-directory >>
           pod-install: << parameters.pod-install >>
@@ -238,6 +247,14 @@ commands:
         type: string
         default: ""
     steps:
+      - when:
+          condition: << parameters.install-bundler >>
+          steps:
+            -  run:
+                name: Install the newest version of bundler
+                command: |
+                  rbenv install -s
+                  gem install bundler
       - when:
           condition: << parameters.bundle-install >>
           steps:
