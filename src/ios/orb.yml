@@ -233,6 +233,8 @@ jobs:
                   else
                     mkdir -p ~/.ssh
 
+                    (umask 077; touch ~/.ssh/pod_repo_push_deploy_key.pub)
+                    chmod 0600 ~/.ssh/pod_repo_push_deploy_key.pub
                     (cat \<<EOF > ~/.ssh/pod_repo_push_deploy_key.pub
                     $SPEC_REPO_PUBLIC_DEPLOY_KEY
                   EOF
