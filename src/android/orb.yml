@@ -207,7 +207,7 @@ commands:
   publish-to-s3:
     description: Publish library artifacts to S3
     parameters:
-      module-name:
+      module_name:
         type: string
     steps:
       - run:
@@ -218,5 +218,5 @@ commands:
             if [[ -n "$CIRCLE_PULL_REQUEST" ]]; then
               PULL_REQUEST_PARAM+=(--pull-request-url=$CIRCLE_PULL_REQUEST)
             fi
-            ./gradlew --stacktrace :<<parameters.module-name>>:publishToS3 --branch-name=$CIRCLE_BRANCH --sha1=$CIRCLE_SHA1 $PULL_REQUEST_PARAM
+            ./gradlew --stacktrace :<<parameters.module_name>>:publishToS3 --branch-name=$CIRCLE_BRANCH --sha1=$CIRCLE_SHA1 $PULL_REQUEST_PARAM
 
