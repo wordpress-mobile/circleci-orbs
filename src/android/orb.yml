@@ -204,44 +204,19 @@ commands:
           path: ~/results
       - store_artifacts:
           path: ~/results
-  calculate-s3-publish-version-name:
+  publish-to-s3:
+    description: Publish library artifacts to S3
+    parameters:
+      module-name:
+        type: string
     steps:
       - run:
-          name: Calculate version name to be published to S3 and save it to /tmp/s3-publish-version
+          name: Publish to S3
           command: |
             PULL_REQUEST_PARAM=()
             # Add the pull request url parameter if it exists
             if [[ -n "$CIRCLE_PULL_REQUEST" ]]; then
               PULL_REQUEST_PARAM+=(--pull-request-url=$CIRCLE_PULL_REQUEST)
             fi
-
-            VERSION=$(./gradlew -q calculateVersionName --branch-name=$CIRCLE_BRANCH --sha1=$CIRCLE_SHA1 $PULL_REQUEST_PARAM || :)
-            if [[ -z "$VERSION" ]]; then
-              echo "Running on a feature branch with no open PR: skipping S3 upload"
-              circleci-agent step halt
-            fi
-
-            echo "$VERSION" > /tmp/s3-publish-version
-  assert-version-is-not-already-published-to-s3:
-    steps:
-      - run:
-          name: Assert that version from /tmp/s3-publish-version is not already published to S3
-          command: |
-            VERSION=$(cat /tmp/s3-publish-version)
-            if [[ $(./gradlew checkIfVersionIsAlreadyPublished -PpublishVersion="$VERSION") == "true" ]]; then
-              echo "'$VERSION' is already published to S3!"
-              exit 1
-            fi
-  publish-to-s3:
-    parameters:
-        publish_task:
-            description: Gradle task name that publishes the library artifacts
-            type: string
-            default: "publish"
-    steps:
-      - run:
-          name: Calls the Gradle publish task and passes version from /tmp/s3-publish-version as a project property
-          command: |
-            VERSION=$(cat /tmp/s3-publish-version)
-            ./gradlew --stacktrace <<parameters.publish_task>> -PpublishVersion=$VERSION
+            ./gradlew --stacktrace :<<parameters.module-name>>:publishToS3 --branch-name=$CIRCLE_BRANCH --sha1=$CIRCLE_SHA1 $PULL_REQUEST_PARAM
 
