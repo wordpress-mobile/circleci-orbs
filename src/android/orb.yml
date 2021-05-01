@@ -213,15 +213,9 @@ commands:
       - run:
           name: Publish to S3
           command: |
-            BRANCH_NAME_PARAM=()
-            PULL_REQUEST_PARAM=()
-            # Add branch name parameter if it exists
-            if [[ -n "$CIRCLE_BRANCH" ]]; then
-              BRANCH_NAME_PARAM+=(--branch-name=$CIRCLE_BRANCH)
-            fi
-            # Add the pull request url parameter if it exists
-            if [[ -n "$CIRCLE_PULL_REQUEST" ]]; then
-              PULL_REQUEST_PARAM+=(--pull-request-url=$CIRCLE_PULL_REQUEST)
-            fi
-            ./gradlew --stacktrace :<<parameters.module_name>>:publishToS3 --sha1=$CIRCLE_SHA1 $BRANCH_NAME_PARAM $PULL_REQUEST_PARAM
+            PARAMS=(--sha1=$CIRCLE_SHA1)
+            [[ -n "$CIRCLE_TAG" ]] && PARAMS+=(--tag-name=$CIRCLE_TAG)
+            [[ -n "$CIRCLE_BRANCH" ]] && PARAMS+=(--branch-name=$CIRCLE_BRANCH)
+            [[ -n "$CIRCLE_PULL_REQUEST" ]] && PARAMS+=(--pull-request-url=$CIRCLE_PULL_REQUEST)
+            ./gradlew --stacktrace :<<parameters.module_name>>:publishToS3 $PARAMS
 
