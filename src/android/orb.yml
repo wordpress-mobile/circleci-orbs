@@ -244,6 +244,9 @@ commands:
             else
                 echo "We only publish artifacts if the build is from a tag, a PR or from develop and trunk branches."
                 echo "Skipping publishing artifacts!"
+                echo ""
+                echo "If this build was triggered from a commit that is part of an open PR, it's possible it started before the PR was opened."
+                echo "In that case, simply restart the workflow an CircleCI will notice the PR and not halt here."
                 circleci-agent step halt
             fi
 
