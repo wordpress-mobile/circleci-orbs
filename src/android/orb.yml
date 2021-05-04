@@ -225,7 +225,7 @@ commands:
           name: Check if library artifacts should be published
           command: |
             if [[ -z "$CIRCLE_SHA1" ]]; then
-                echo "Commit hash should always be available. Since we rely on this assumption in later commands, this acts as a sanity check"
+                echo "Commit hash should always be available. Since we rely on this assumption in later commands, this acts as a precondition check"
                 exit 1
             fi
 
@@ -240,4 +240,3 @@ commands:
                 echo "Skipping publishing artifacts!"
                 circleci-agent step halt
             fi
-
