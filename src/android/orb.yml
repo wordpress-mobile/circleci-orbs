@@ -218,4 +218,35 @@ commands:
             [[ -n "$CIRCLE_BRANCH" ]] && PARAMS+=(--branch-name=$CIRCLE_BRANCH)
             [[ -n "$CIRCLE_PULL_REQUEST" ]] && PARAMS+=(--pull-request-url=$CIRCLE_PULL_REQUEST)
             ./gradlew --stacktrace :<<parameters.module_name>>:publishToS3 "${PARAMS[@]}"
+  check-precondition-for-publish-artifacts:
+    description: Check if library artifacts should be published
+    steps:
+      - run:
+          name: Check if library artifacts should be published
+          command: |
+            echo "Environment:"
+            echo "> SHA1: $CIRCLE_SHA1"
+            echo "> tag?: $CIRCLE_TAG"
+            echo "> branch?: $CIRCLE_BRANCH"
+            echo "> PR?: $CIRCLE_PULL_REQUEST"
+
+            if [[ -z "$CIRCLE_SHA1" ]]; then
+                echo "Commit hash should always be available. Since we rely on this assumption in later commands, this acts as a precondition check"
+                exit 1
+            fi
+
+            if [[ -n "$CIRCLE_TAG" ]]; then
+                echo "Proceed because we are building a tag..."
+            elif [[ -n "$CIRCLE_PULL_REQUEST" ]]; then
+                echo "Proceed because we are building a PR..."
+            elif [[ "$CIRCLE_BRANCH" == "develop" || "$CIRCLE_BRANCH" == "trunk" ]]; then
+                echo "Proceed because we are building $CIRCLE_BRANCH..."
+            else
+                echo "We only publish artifacts if the build is from a tag, a PR or from develop and trunk branches."
+                echo "Skipping publishing artifacts!"
+                echo ""
+                echo "If this build was triggered from a commit that is part of an open PR, it's possible it started before the PR was opened."
+                echo "In that case, simply restart the workflow and CircleCI will notice the PR and not halt here."
+                circleci-agent step halt
+            fi
 
