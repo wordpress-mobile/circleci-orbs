@@ -224,6 +224,12 @@ commands:
       - run:
           name: Check if library artifacts should be published
           command: |
+            echo "Environment:"
+            echo "> SHA1: $CIRCLE_SHA1"
+            echo "> tag?: $CIRCLE_TAG"
+            echo "> branch?: $CIRCLE_BRANCH"
+            echo "> PR?: $CIRCLE_PULL_REQUEST"
+
             if [[ -z "$CIRCLE_SHA1" ]]; then
                 echo "Commit hash should always be available. Since we rely on this assumption in later commands, this acts as a precondition check"
                 exit 1
@@ -238,5 +244,8 @@ commands:
             else
                 echo "We only publish artifacts if the build is from a tag, a PR or from develop and trunk branches."
                 echo "Skipping publishing artifacts!"
+                echo ""
+                echo "If this build was triggered from a commit that is part of an open PR, it's possible it started before the PR was opened."
+                echo "In that case, simply restart the workflow an CircleCI will notice the PR and not halt here."
                 circleci-agent step halt
             fi
